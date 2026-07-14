@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { registerApply } from "./commands/apply.js";
 import { registerDelete } from "./commands/delete.js";
 import { registerDoctor } from "./commands/doctor.js";
+import { registerExpose } from "./commands/expose.js";
 import { registerLogs } from "./commands/logs.js";
 import { registerScale } from "./commands/scale.js";
 import { registerStatus } from "./commands/status.js";
@@ -27,6 +28,7 @@ program
 registerApply(program);
 registerDelete(program);
 registerDoctor(program);
+registerExpose(program);
 registerLogs(program);
 registerScale(program);
 registerStatus(program);

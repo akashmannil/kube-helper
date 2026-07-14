@@ -25,7 +25,7 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 12 | Desired-state record — per-app meta container (kh's "Deployment object") ✅ |
 | 13 | `kh watch` — reconciler daemon: restart dead replicas, enforce desired state ✅ |
 | 14 | Rolling updates — zero-downtime image upgrades on `kh apply` ✅ |
-| 15 | Built-in reverse proxy / load balancer across replicas of an app |
+| 15 | `kh expose` — built-in load-balancing proxy across an app's replicas ✅ |
 
 ## Phase 3 — Distribution & UX
 
