@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { createRequire } from "node:module";
+import { registerDoctor } from "./commands/doctor.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
@@ -15,6 +16,8 @@ program
   )
   .version(pkg.version, "-v, --version", "print the kh version")
   .showHelpAfterError();
+
+registerDoctor(program);
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err));

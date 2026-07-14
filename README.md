@@ -27,6 +27,7 @@ node dist/cli.js --help   # or: npm run dev -- --help
 | Command | Status | Description |
 | ------- | ------ | ----------- |
 | `kh --version` | ✅ commit 1 | Print the CLI version |
+| `kh doctor` | ✅ commit 2 | Check Docker daemon reachability & machine readiness |
 
 More commands land commit by commit — see [ROADMAP.md](ROADMAP.md).
 
