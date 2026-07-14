@@ -8,6 +8,8 @@ import { contextBridge, ipcRenderer } from "electron";
 const api = {
   dockerStatus: () => ipcRenderer.invoke("docker:status"),
   listApps: () => ipcRenderer.invoke("apps:list"),
+  applyApp: (manifest: unknown) => ipcRenderer.invoke("apps:apply", manifest),
+  deploySample: () => ipcRenderer.invoke("apps:sample"),
   openUrl: (url: string) => ipcRenderer.invoke("shell:open", url),
 };
 

@@ -51,6 +51,25 @@
   #error-banner { display: none; background: #7f1d1d; color: #fecaca; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px; }
   a.local-link { color: var(--accent); text-decoration: none; }
   a.local-link:hover { text-decoration: underline; }
+
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; padding: 22px 24px; width: min(560px, 92vw); max-height: 88vh; overflow-y: auto; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+  .field .hint { margin-top: 3px; }
+  input[type=text], input[type=number] { width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; font: inherit; }
+  input:focus { outline: none; border-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .check { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
+  .subfields { margin: 8px 0 0 24px; }
+  .env-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .env-row input { flex: 1; }
+  #form-error { display: none; background: #7f1d1d; color: #fecaca; padding: 8px 10px; border-radius: 7px; margin-bottom: 12px; font-size: 13px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -58,6 +77,10 @@
   <h1><span>kh</span> kube-helper</h1>
   <span id="docker-pill" class="pill bad">checking Docker…</span>
   <span id="engine-line" class="meta"></span>
+  <span style="margin-left:auto; display:flex; gap:8px">
+    <button id="btn-sample" title="Deploys a small demo website so you can see how this works">Run sample app</button>
+    <button id="btn-new" class="primary">＋ New app</button>
+  </span>
 </header>
 <p id="tagline">Run apps on this computer the easy way — kube-helper drives Docker for you, so you don't need to learn it.</p>
 
@@ -74,8 +97,90 @@
 <main id="apps"></main>
 <div id="empty" style="display:none">
   <p>No apps yet.</p>
-  <p class="hint">An "app" is anything you want this computer to run — a website, a database, an API.</p>
+  <p class="hint">An "app" is anything you want this computer to run — a website, a database, an API.<br>
+  Click <b>Run sample app</b> to see one working in seconds, or <b>＋ New app</b> to set up your own.</p>
 </div>
+
+<dialog id="new-app">
+  <h2 id="dialog-title" style="margin-bottom:4px">New app</h2>
+  <p class="hint" style="margin-bottom:16px">Fill this in and kube-helper does the Docker work for you — downloading, starting, and keeping it running.</p>
+  <div id="form-error"></div>
+
+  <div class="field">
+    <label for="f-name">Name</label>
+    <input type="text" id="f-name" placeholder="my-blog" spellcheck="false">
+    <p class="hint">A short name you'll recognise. Lowercase letters, numbers and dashes only.</p>
+  </div>
+
+  <div class="field">
+    <label for="f-image">App package (image)</label>
+    <input type="text" id="f-image" list="image-suggestions" placeholder="nginx:alpine" spellcheck="false">
+    <datalist id="image-suggestions">
+      <option value="nginx:alpine">tiny web server — great for a first try</option>
+      <option value="httpd:alpine">Apache web server</option>
+      <option value="postgres:16-alpine">PostgreSQL database (add a POSTGRES_PASSWORD setting)</option>
+      <option value="mysql:8">MySQL database (add MYSQL_ROOT_PASSWORD)</option>
+      <option value="redis:alpine">Redis — fast in-memory data store</option>
+      <option value="ghost:5-alpine">Ghost blogging platform</option>
+    </datalist>
+    <p class="hint">Think of it as the app's installer — it's downloaded automatically from Docker Hub.
+    Pick a suggestion, or paste any image name a developer gave you.</p>
+  </div>
+
+  <div class="field">
+    <label for="f-replicas">Copies</label>
+    <input type="number" id="f-replicas" value="1" min="0" max="100">
+    <p class="hint">How many identical copies run at once. With 2 or more, the app stays up even if one copy crashes,
+    and updates happen with no downtime.</p>
+  </div>
+
+  <div class="field">
+    <label class="check"><input type="checkbox" id="f-web" checked> Reachable in your browser</label>
+    <div class="subfields" id="web-fields">
+      <div class="row">
+        <div>
+          <label for="f-hport">Port on this computer</label>
+          <input type="number" id="f-hport" value="8080" min="1" max="65535">
+          <p class="hint">You'll open the app at <span class="mono">localhost:&lt;port&gt;</span>. Each extra copy uses the next port up.</p>
+        </div>
+        <div>
+          <label for="f-cport">Port inside the app</label>
+          <input type="number" id="f-cport" value="80" min="1" max="65535">
+          <p class="hint">Where the app listens internally — web servers are usually 80. The suggestion list's apps use their defaults.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Settings <span class="hint" style="display:inline">(optional)</span></label>
+    <div id="env-rows"></div>
+    <button type="button" id="btn-add-env">+ add setting</button>
+    <p class="hint">Passed to the app as environment variables — e.g. a database needs
+    <span class="mono">POSTGRES_PASSWORD</span> = <span class="mono">something-secret</span>.</p>
+  </div>
+
+  <div class="field">
+    <label class="check"><input type="checkbox" id="f-data"> Keep this app's data</label>
+    <div class="subfields" id="data-fields" style="display:none">
+      <label for="f-mount">Folder inside the app to protect</label>
+      <input type="text" id="f-mount" value="/data" spellcheck="false">
+      <p class="hint">Files saved there survive updates, restarts and crashes. For PostgreSQL use
+      <span class="mono">/var/lib/postgresql/data</span>, for MySQL <span class="mono">/var/lib/mysql</span>.</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="check"><input type="checkbox" id="f-health"> Auto health check (web apps)</label>
+    <p class="hint" style="margin-left:24px">kube-helper pings the app every few seconds; copies that stop answering
+    are marked unhealthy and restarted by the watcher.</p>
+  </div>
+
+  <div class="dialog-actions">
+    <button type="button" id="new-app-cancel">Cancel</button>
+    <button type="button" id="new-app-submit" class="primary">Deploy</button>
+  </div>
+</dialog>
 
 <script src="./renderer.js"></script>
 </body>
