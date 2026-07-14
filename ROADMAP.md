@@ -45,5 +45,6 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 22 | Windows packaging — installable/portable desktop app ✅ |
 | 23 | Fix: dialogs centered (CSS reset clobbered `<dialog>` margin:auto) ✅ |
 | 24 | Easy / Developer mode toggle — plain language vs full Docker/k8s control ✅ |
+| 25 | Detached windows — each app + Logs/Edit/Share/Manifest as its own OS window ✅ |
 
 Further ideas live at the end of [docs/commits/commit_18.md](docs/commits/commit_18.md).

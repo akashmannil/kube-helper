@@ -5,6 +5,7 @@ import { createServer as createNetServer } from "node:net";
 import { dirname, join } from "node:path";
 
 const { app, BrowserWindow, ipcMain, shell } = electron;
+type BrowserWindowInstance = InstanceType<typeof BrowserWindow>;
 import { fileURLToPath } from "node:url";
 import { createDockerClient, daemonStartHint } from "../docker/client.js";
 import { AppNotFoundError, deleteApp, exposeApp, scaleApp } from "../engine/actions.js";
@@ -147,6 +148,56 @@ function registerIpc(): void {
       await shell.openExternal(url);
     })
   );
+
+  ipcMain.handle("window:open", (_event, view: string, appName: string) =>
+    guard(async () => {
+      openChildWindow(String(view), String(appName ?? ""));
+    })
+  );
+}
+
+/** Each view kind's window size; `solo` = one window per app (focus if reopened). */
+const WINDOW_KINDS: Record<string, { width: number; height: number; solo: boolean }> = {
+  app: { width: 780, height: 640, solo: true },
+  logs: { width: 900, height: 600, solo: false }, // multiple, so users can compare
+  new: { width: 640, height: 800, solo: true },
+  edit: { width: 640, height: 800, solo: true },
+  share: { width: 480, height: 400, solo: true },
+  manifest: { width: 700, height: 640, solo: true },
+};
+
+/** Live child windows keyed by "view:app" (solo kinds) so reopening focuses. */
+const childWindows = new Map<string, BrowserWindowInstance>();
+
+function openChildWindow(view: string, appName: string): void {
+  const kind = WINDOW_KINDS[view];
+  if (!kind) return;
+
+  const key = `${view}:${appName}`;
+  if (kind.solo) {
+    const existing = childWindows.get(key);
+    if (existing && !existing.isDestroyed()) {
+      existing.focus();
+      return;
+    }
+  }
+
+  const win = new BrowserWindow({
+    width: kind.width,
+    height: kind.height,
+    minWidth: 380,
+    minHeight: 300,
+    backgroundColor: "#0b0f14",
+    title: "kube-helper",
+    webPreferences: { preload: join(here, "preload.cjs") },
+  });
+  win.removeMenu();
+  void win.loadFile(join(here, "index.html"), { query: { view, app: appName } });
+
+  if (kind.solo) {
+    childWindows.set(key, win);
+    win.on("closed", () => childWindows.delete(key));
+  }
 }
 
 function createWindow(): void {

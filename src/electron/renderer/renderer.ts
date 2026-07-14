@@ -11,6 +11,21 @@ type Mode = "easy" | "dev";
 let mode: Mode = localStorage.getItem("kh-mode") === "dev" ? "dev" : "easy";
 const isDev = (): boolean => mode === "dev";
 
+/**
+ * Window routing. The main window has no `view` param and shows the overview.
+ * Detached windows carry `?view=<kind>&app=<name>`:
+ *   - "app"   → one app's detail, live-updating (its own OS window)
+ *   - "logs"  → one app's logs (multiple may be open to compare)
+ *   - "new" / "edit" / "share" / "manifest" → a single dialog filling the window
+ * A "panel" window hosts a dialog full-screen; "solo" shows a single app card.
+ */
+const route = new URLSearchParams(location.search);
+const winView = route.get("view"); // null in the main window
+const winApp = route.get("app") ?? "";
+const isPanel = winView !== null && winView !== "app";
+/** When set, the overview renders only this app (the "app" detail window). */
+let soloApp: string | null = winView === "app" ? winApp : null;
+
 interface ReplicaView {
   name: string;
   state: string;
@@ -55,6 +70,7 @@ interface KhBridge {
   exposeApp(app: string, hostPort: number): Promise<IpcResult<unknown>>;
   fetchLogs(app: string, tail: number): Promise<IpcResult<LogLine[]>>;
   openUrl(url: string): Promise<IpcResult<void>>;
+  openWindow(view: string, app: string): Promise<IpcResult<void>>;
 }
 declare global {
   interface Window {
@@ -63,6 +79,15 @@ declare global {
 }
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/**
+ * Show a dialog. In a detached "panel" window it fills the window (non-modal,
+ * no backdrop); in the main window it's a centered modal as before.
+ */
+function showDialog(dlg: HTMLDialogElement): void {
+  if (isPanel) dlg.show();
+  else dlg.showModal();
+}
 
 function esc(s: unknown): string {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
@@ -98,10 +123,20 @@ let lastApps: AppView[] = [];
 const deleteArmedAt = new Map<string, number>();
 const DELETE_ARM_MS = 4000;
 
-function renderApps(apps: AppView[]): void {
-  lastApps = apps;
-  document.title = `kube-helper — ${apps.length} app(s)`;
-  $("empty").style.display = apps.length ? "none" : "block";
+function renderApps(all: AppView[]): void {
+  lastApps = all;
+  // A "solo" (per-app detail) window renders only its app.
+  const apps = soloApp ? all.filter((a) => a.name === soloApp) : all;
+  if (soloApp) {
+    document.title = `${soloApp} — kube-helper`;
+    if (apps.length === 0) {
+      $("apps").innerHTML = `<div class="card"><p class="hint">“${esc(soloApp)}” is no longer running — it may have been deleted.</p></div>`;
+      return;
+    }
+  } else {
+    document.title = `kube-helper — ${all.length} app(s)`;
+    $("empty").style.display = all.length ? "none" : "block";
+  }
   $("apps").innerHTML = apps
     .map(
       (a) => `
@@ -117,12 +152,13 @@ function renderApps(apps: AppView[]): void {
           )
           .join(" ")}
         <span class="actions" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <button data-action="open" data-app="${esc(a.name)}" title="Open this app in its own window">⧉ Open</button>
           <button data-action="scale-down" data-app="${esc(a.name)}" title="Run one fewer ${unit(false)}" ${a.desired <= 0 ? "disabled" : ""}>−</button>
           <button data-action="scale-up" data-app="${esc(a.name)}" title="Run one more ${unit(false)} — added with no downtime" ${a.desired >= 100 ? "disabled" : ""}>+</button>
-          <button data-action="logs" data-app="${esc(a.name)}" title="See what the app prints — first place to look when something misbehaves">Logs</button>
-          <button data-action="edit" data-app="${esc(a.name)}" title="Change the ${isDev() ? "spec" : "package, settings or ports"} — rolling update, one ${unit(false)} at a time">Edit</button>
-          <button data-action="manifest" data-app="${esc(a.name)}" class="dev-only" title="View the kh/v1 manifest and the CLI to deploy it">Manifest</button>
-          <button data-action="share" data-app="${esc(a.name)}" title="One stable address that load-balances across all ${unit(true)}">Share…</button>
+          <button data-action="logs" data-app="${esc(a.name)}" title="Open logs in a new window — open several to compare apps side by side">Logs ⧉</button>
+          <button data-action="edit" data-app="${esc(a.name)}" title="Edit in a new window — rolling update, one ${unit(false)} at a time">Edit ⧉</button>
+          <button data-action="manifest" data-app="${esc(a.name)}" class="dev-only" title="View the kh/v1 manifest and the CLI to deploy it">Manifest ⧉</button>
+          <button data-action="share" data-app="${esc(a.name)}" title="One stable address that load-balances across all ${unit(true)}">Share… ⧉</button>
           <button data-action="delete" data-app="${esc(a.name)}" class="danger">${
             Date.now() - (deleteArmedAt.get(a.name) ?? 0) < DELETE_ARM_MS ? "Sure? click again" : "Delete"
           }</button>
@@ -193,22 +229,22 @@ async function onAction(btn: HTMLButtonElement): Promise<void> {
       await tick();
       return;
     }
+    // These each open a dedicated OS window (see the main process window
+    // manager); logs windows aren't deduped, so several can compare apps.
+    case "open":
+      void window.kh.openWindow("app", app);
+      return;
     case "logs":
-      openLogs(app);
+      void window.kh.openWindow("logs", app);
       return;
     case "edit":
-      openEdit(view);
+      void window.kh.openWindow("edit", app);
       return;
     case "share":
-      openShare(view);
+      void window.kh.openWindow("share", app);
       return;
     case "manifest":
-      openManifest(view.name, {
-        apiVersion: "kh/v1",
-        kind: "App",
-        metadata: { name: view.name },
-        spec: view.spec ?? { image: view.image, replicas: view.desired },
-      });
+      void window.kh.openWindow("manifest", app);
       return;
   }
 }
@@ -325,7 +361,7 @@ function openNewApp(): void {
   setVal("f-restart", "always");
   $("env-rows").innerHTML = "";
   syncSubfields();
-  dialog.showModal();
+  showDialog(dialog);
 }
 
 function openEdit(view: AppView): void {
@@ -367,7 +403,7 @@ function openEdit(view: AppView): void {
   $("env-rows").innerHTML = "";
   for (const [key, value] of Object.entries(base.env ?? {})) addEnvRow(key, value);
   syncSubfields();
-  dialog.showModal();
+  showDialog(dialog);
 }
 
 function syncSubfields(): void {
@@ -516,7 +552,7 @@ function openLogs(app: string): void {
   logsApp = app;
   $("logs-title").textContent = `Logs — ${app}`;
   $("logs-pre").textContent = "loading…";
-  logsDialog.showModal();
+  showDialog(logsDialog);
   void loadLogs();
   clearInterval(logsTimer);
   logsTimer = setInterval(() => {
@@ -538,7 +574,7 @@ function openShare(view: AppView): void {
   shareApp = view.name;
   $("share-app").textContent = view.name;
   ($("share-error") as HTMLElement).style.display = "none";
-  shareDialog.showModal();
+  showDialog(shareDialog);
 }
 
 async function submitShare(): Promise<void> {
@@ -614,7 +650,7 @@ function scalar(v: unknown): string {
 function openManifest(name: string, manifest: unknown): void {
   $("manifest-title").textContent = `Manifest — ${name}`;
   $("manifest-pre").textContent = toYaml(manifest).trimEnd();
-  manifestDialog.showModal();
+  showDialog(manifestDialog);
 }
 
 $("manifest-close").addEventListener("click", () => manifestDialog.close());
@@ -651,7 +687,8 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#mode-toggle but
   });
 }
 
-$("btn-new").addEventListener("click", openNewApp);
+// The header "New app" button opens a dedicated window (like every other action).
+$("btn-new").addEventListener("click", () => void window.kh.openWindow("new", ""));
 $("btn-sample").addEventListener("click", () => void deploySample());
 $("new-app-cancel").addEventListener("click", () => dialog.close());
 $("new-app-submit").addEventListener("click", () => void submitNewApp());
@@ -663,8 +700,68 @@ $("f-hcmode").addEventListener("change", syncSubfields);
 $("f-health").addEventListener("change", syncSubfields);
 $("retry-docker").addEventListener("click", () => void tick());
 
-applyMode();
-void tick();
-setInterval(() => void tick(), 2500);
+// ---------- Detached window: open the right panel and close the window with it ----------
+
+async function initPanel(view: string, appName: string): Promise<void> {
+  const closeOnDialogClose = (dlg: HTMLDialogElement): void => {
+    dlg.addEventListener("close", () => window.close());
+  };
+
+  if (view === "new") {
+    openNewApp();
+    closeOnDialogClose(dialog);
+    return;
+  }
+  if (view === "logs") {
+    document.title = `Logs — ${appName}`;
+    openLogs(appName);
+    closeOnDialogClose(logsDialog);
+    return;
+  }
+
+  const res = await window.kh.listApps();
+  if (!res.ok) return showError(res.error);
+  const v = res.data.apps.find((a) => a.name === appName);
+  if (!v) return showError(`App "${appName}" was not found — it may have been deleted.`);
+
+  if (view === "edit") {
+    document.title = `Edit ${appName}`;
+    openEdit(v);
+    closeOnDialogClose(dialog);
+  } else if (view === "share") {
+    document.title = `Share ${appName}`;
+    openShare(v);
+    closeOnDialogClose(shareDialog);
+  } else if (view === "manifest") {
+    document.title = `Manifest — ${appName}`;
+    openManifest(v.name, {
+      apiVersion: "kh/v1",
+      kind: "App",
+      metadata: { name: v.name },
+      spec: v.spec ?? { image: v.image, replicas: v.desired },
+    });
+    closeOnDialogClose(manifestDialog);
+  }
+}
+
+// ---------- Boot, routed by window type ----------
+
+document.body.dataset.mode = mode;
+
+if (winView === null) {
+  // Main overview window.
+  applyMode();
+  void tick();
+  setInterval(() => void tick(), 2500);
+} else if (winView === "app") {
+  // Per-app detail window: live-updating single card.
+  document.body.classList.add("secondary", "solo");
+  void tick();
+  setInterval(() => void tick(), 2500);
+} else {
+  // A dialog-hosting panel window (new/edit/share/logs/manifest).
+  document.body.classList.add("secondary", "panel");
+  void initPanel(winView, winApp);
+}
 
 export {};

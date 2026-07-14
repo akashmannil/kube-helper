@@ -15,6 +15,7 @@ const api = {
   exposeApp: (app: string, hostPort: number) => ipcRenderer.invoke("apps:expose", app, hostPort),
   fetchLogs: (app: string, tail: number) => ipcRenderer.invoke("apps:logs", app, tail),
   openUrl: (url: string) => ipcRenderer.invoke("shell:open", url),
+  openWindow: (view: string, app: string) => ipcRenderer.invoke("window:open", view, app),
 };
 
 export type KhBridge = typeof api;

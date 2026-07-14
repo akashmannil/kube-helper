@@ -40,6 +40,10 @@ Docker/Kubernetes terminology with every advanced option (custom command, port p
 volume type, health-probe tuning, restart policy) plus a one-click **Manifest** view showing
 the exact `khapp.yaml` to deploy the same thing from the CLI.
 
+Every app and every action opens in its own resizable OS window: **⧉ Open** gives an app its
+own live window, and **Logs / Edit / Share / Manifest** each detach so you can open several at
+once — e.g. two apps' logs side by side to compare.
+
 ```sh
 npm run gui         # develop: opens the desktop window
 npm run dist        # ship:   → release/kube-helper 0.1.0.exe (portable Windows app)

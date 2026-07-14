@@ -85,6 +85,14 @@
   select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
     border-radius: 7px; padding: 6px 10px; font: inherit; }
   select:focus { outline: none; border-color: var(--accent); }
+
+  /* Detached windows (opened via window:open). A "panel" window hosts a single
+     dialog filling the whole window; a "solo" window shows one app's card. */
+  body.secondary .overview-only { display: none !important; }
+  body.secondary.panel { padding: 0; }
+  body.secondary.panel dialog[open] { position: fixed; inset: 0; margin: 0; width: 100vw; height: 100vh;
+    max-width: none; max-height: none; border: none; border-radius: 0; overflow-y: auto; }
+  body.solo [data-action="open"] { display: none; }
 </style>
 </head>
 <body>
@@ -92,7 +100,7 @@
   <h1><span>kh</span> kube-helper</h1>
   <span id="docker-pill" class="pill bad">checking Docker…</span>
   <span id="engine-line" class="meta"></span>
-  <span style="margin-left:auto; display:flex; gap:10px; align-items:center">
+  <span class="overview-only" style="margin-left:auto; display:flex; gap:10px; align-items:center">
     <span id="mode-toggle" class="mode-toggle" title="Easy mode uses plain language and hides advanced options. Developer mode shows real Docker/Kubernetes terms and every option.">
       <button data-mode="easy" class="active">Easy</button>
       <button data-mode="dev">Developer</button>
@@ -101,7 +109,7 @@
     <button id="btn-new" class="primary">＋ New app</button>
   </span>
 </header>
-<p id="tagline">
+<p id="tagline" class="overview-only">
   <span class="easy-only">Run apps on this computer the easy way — kube-helper drives Docker for you, so you don't need to learn it.</span>
   <span class="dev-only">Single-machine container orchestration on the Docker Engine API — declarative apps, replicas, reconciliation, rolling updates.</span>
 </p>
@@ -117,7 +125,7 @@
 </section>
 
 <main id="apps"></main>
-<div id="empty" style="display:none">
+<div id="empty" class="overview-only" style="display:none">
   <p>No apps yet.</p>
   <p class="hint">An "app" is anything you want this computer to run — a website, a database, an API.<br>
   Click <b>Run sample app</b> to see one working in seconds, or <b>＋ New app</b> to set up your own.</p>
