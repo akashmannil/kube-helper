@@ -1,0 +1,14 @@
+# A minimal kh app: two nginx replicas behind host ports 8080/8081.
+# Deploy with:  kh apply -f examples/nginx.yaml
+apiVersion: kh/v1
+kind: App
+metadata:
+  name: web
+spec:
+  image: nginx:alpine
+  replicas: 2
+  ports:
+    - container: 80
+      host: 8080   # replica 0 gets 8080, replica 1 gets 8081, ...
+  env:
+    NGINX_ENTRYPOINT_QUIET_LOGS: 1
