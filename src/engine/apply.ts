@@ -4,12 +4,14 @@ import {
   APP_LABEL,
   MANAGED_LABEL,
   REPLICA_LABEL,
+  ROLE_LABEL,
   SPEC_HASH_LABEL,
   SPEC_LABEL,
   containerName,
+  metaContainerName,
 } from "../labels.js";
 import type { AppManifest, AppSpec } from "../manifest/schema.js";
-import { specHash } from "./hash.js";
+import { canonicalJson, specHash } from "./hash.js";
 import { ensureImage } from "./image.js";
 import { listManaged } from "./state.js";
 import { ensureVolume } from "./volumes.js";
@@ -54,14 +56,24 @@ export async function applyApp(
     unchanged: 0,
   };
 
-  if (spec.replicas > 0) {
-    result.image = await ensureImage(docker, spec.image, onStatus);
-    if ((await ensureKhNetwork(docker)) === "created") {
-      onStatus?.(`Created the shared "${KH_NETWORK}" network`);
-    }
+  // The image is needed even at 0 replicas: the meta record is a container.
+  result.image = await ensureImage(docker, spec.image, onStatus);
+  if (spec.replicas > 0 && (await ensureKhNetwork(docker)) === "created") {
+    onStatus?.(`Created the shared "${KH_NETWORK}" network`);
   }
 
-  const existing = await listManaged(docker, app);
+  const all = await listManaged(docker, app, { includeMeta: true });
+  const existing = all.filter((c) => c.role === "replica");
+  const meta = all.find((c) => c.role === "meta");
+
+  // Record desired state *first* (kubernetes writes the Deployment before the
+  // controller converges): if reconciliation is interrupted, a later pass
+  // still knows what the user asked for.
+  if (!meta || !meta.spec || canonicalJson(meta.spec) !== canonicalJson(spec)) {
+    if (meta) await docker.getContainer(meta.id).remove({ force: true });
+    await createMeta(docker, app, spec, hash);
+  }
+
   const byReplica = new Map(existing.map((c) => [c.replica, c]));
 
   for (let i = 0; i < spec.replicas; i++) {
@@ -96,23 +108,30 @@ export async function applyApp(
     }
   }
 
-  // Desired state is read back from the *newest* container's kh.spec label.
-  // Anything created/replaced above already records the new replica count;
-  // a pure scale-down does not, so stamp it by replacing the newest survivor.
-  if (spec.replicas > 0 && result.created === 0 && result.replaced === 0) {
-    const survivors = await listManaged(docker, app);
-    const newest = survivors.reduce<(typeof survivors)[number] | undefined>(
-      (best, c) => (!best || c.createdAt >= best.createdAt ? c : best),
-      undefined
-    );
-    if (newest?.spec && newest.spec.replicas !== spec.replicas) {
-      await docker.getContainer(newest.id).remove({ force: true });
-      await createReplica(docker, app, newest.replica, spec, hash);
-      result.replaced++;
-    }
-  }
-
   return result;
+}
+
+/**
+ * The app's desired-state record: a container that is created but never
+ * started (state "created", no process, no network, no ports). It exists only
+ * to carry the authoritative kh.spec label, surviving replica churn, crashes
+ * and scale-to-zero — kh's equivalent of a Deployment object, still with no
+ * database anywhere.
+ */
+async function createMeta(docker: Docker, app: string, spec: AppSpec, hash: string): Promise<void> {
+  await docker.createContainer({
+    name: metaContainerName(app),
+    Image: spec.image,
+    Entrypoint: ["true"],
+    Labels: {
+      [MANAGED_LABEL]: "true",
+      [APP_LABEL]: app,
+      [ROLE_LABEL]: "meta",
+      [SPEC_HASH_LABEL]: hash,
+      [SPEC_LABEL]: JSON.stringify(spec),
+    },
+    HostConfig: { NetworkMode: "none" },
+  });
 }
 
 function restartPolicy(restart: AppSpec["restart"]): { Name: string; MaximumRetryCount?: number } {
@@ -174,6 +193,7 @@ async function createReplica(
     Labels: {
       [MANAGED_LABEL]: "true",
       [APP_LABEL]: app,
+      [ROLE_LABEL]: "replica",
       [REPLICA_LABEL]: String(index),
       [SPEC_HASH_LABEL]: hash,
       [SPEC_LABEL]: JSON.stringify(spec),

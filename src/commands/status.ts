@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { listManaged, type ManagedContainer } from "../engine/state.js";
+import { listApps, type ManagedContainer } from "../engine/state.js";
 import { age, dim, green, red, table, yellow } from "../ui.js";
 import { connectOrExit, reportError } from "./util.js";
 
@@ -29,8 +29,8 @@ export function registerStatus(program: Command): void {
       if (!docker) return;
 
       try {
-        const containers = await listManaged(docker, app);
-        if (containers.length === 0) {
+        const apps = await listApps(docker, app);
+        if (apps.length === 0) {
           if (app) {
             reportError(new Error(`No app named "${app}". See all apps with: kh status`));
           } else {
@@ -41,7 +41,12 @@ export function registerStatus(program: Command): void {
 
         if (app) {
           // Detail view: one row per replica.
-          const rows = containers.map((c) => [
+          const replicas = apps[0]?.replicas ?? [];
+          if (replicas.length === 0) {
+            console.log(`${app} is scaled to 0 replicas. Resize with: kh scale ${app} <n>`);
+            return;
+          }
+          const rows = replicas.map((c) => [
             c.name,
             c.ready ? green(c.state) : c.state === "running" ? yellow(c.state) : red(c.state),
             c.status,
@@ -52,25 +57,25 @@ export function registerStatus(program: Command): void {
         }
 
         // Overview: one row per app.
-        const byApp = new Map<string, ManagedContainer[]>();
-        for (const c of containers) {
-          byApp.set(c.app, [...(byApp.get(c.app) ?? []), c]);
-        }
-
-        const rows = [...byApp.entries()].map(([name, group]) => {
+        const rows = apps.map((state) => {
           // Ready = running and healthy (when a healthcheck exists), like k8s.
-          const running = group.filter((c) => c.ready).length;
-          // Desired state comes from the newest container's stored spec —
-          // apply/scale guarantee the newest one records the current count.
-          const newest = [...group].sort((a, b) => b.createdAt - a.createdAt).find((c) => c.spec);
-          const desired = newest?.spec?.replicas ?? group.length;
-          const image = newest?.spec?.image ?? group[0]?.image ?? "?";
-          const oldest = Math.min(...group.map((c) => c.createdAt));
-          return [name, readiness(running, desired), image, portSummary(group), age(oldest)];
+          const running = state.replicas.filter((c) => c.ready).length;
+          const desired = state.spec?.replicas ?? state.replicas.length;
+          const image = state.spec?.image ?? state.replicas[0]?.image ?? "?";
+          const members = [...state.replicas, ...(state.meta ? [state.meta] : [])];
+          const oldest = Math.min(...members.map((c) => c.createdAt));
+          return [
+            state.app,
+            readiness(running, desired),
+            image,
+            portSummary(state.replicas),
+            age(oldest),
+          ];
         });
 
+        const replicaCount = apps.reduce((sum, s) => sum + s.replicas.length, 0);
         console.log(table(["NAME", "READY", "IMAGE", "PORTS", "AGE"], rows));
-        console.log(dim(`\n${byApp.size} app(s), ${containers.length} replica container(s)`));
+        console.log(dim(`\n${apps.length} app(s), ${replicaCount} replica container(s)`));
       } catch (err) {
         reportError(err);
       }

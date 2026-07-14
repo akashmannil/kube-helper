@@ -24,7 +24,7 @@ export function registerDelete(program: Command): void {
       if (!docker) return;
 
       try {
-        const containers = await listManaged(docker, app);
+        const containers = await listManaged(docker, app, { includeMeta: true });
         const volumes = await listManagedVolumes(docker, app);
         if (containers.length === 0 && (!options.volumes || volumes.length === 0)) {
           if (app) {
@@ -43,7 +43,8 @@ export function registerDelete(program: Command): void {
           await Promise.all(
             group.map((c) => docker.getContainer(c.id).remove({ force: true }))
           );
-          ok(`${bold(name)} deleted ${dim(`(${group.length} container(s) removed)`)}`);
+          const replicas = group.filter((c) => c.role === "replica").length;
+          ok(`${bold(name)} deleted ${dim(`(${replicas} replica container(s) removed)`)}`);
         }
 
         if (volumes.length > 0) {

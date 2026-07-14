@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { applyApp } from "../engine/apply.js";
-import { listManaged } from "../engine/state.js";
+import { listApps, listManaged } from "../engine/state.js";
 import type { AppManifest } from "../manifest/schema.js";
 import { bold, dim, ok } from "../ui.js";
 import { connectOrExit, formatApplyActions, reportError } from "./util.js";
@@ -19,18 +19,13 @@ export function registerScale(program: Command): void {
       if (!docker) return;
 
       try {
-        const containers = await listManaged(docker, app);
-        if (containers.length === 0) {
+        const [state] = await listApps(docker, app);
+        if (!state) {
           return reportError(new Error(`No app named "${app}". See all apps with: kh status`));
         }
-
-        // Recover the deployed spec from the newest container's kh.spec label.
-        const newest = [...containers]
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .find((c) => c.spec);
-        if (!newest?.spec) {
+        if (!state.spec) {
           return reportError(
-            new Error(`Containers of "${app}" carry no readable kh.spec label — re-deploy with: kh apply -f <manifest>`)
+            new Error(`"${app}" carries no readable kh.spec label — re-deploy with: kh apply -f <manifest>`)
           );
         }
 
@@ -38,7 +33,7 @@ export function registerScale(program: Command): void {
           apiVersion: "kh/v1",
           kind: "App",
           metadata: { name: app },
-          spec: { ...newest.spec, replicas },
+          spec: { ...state.spec, replicas },
         };
 
         const r = await applyApp(docker, manifest);
@@ -50,7 +45,7 @@ export function registerScale(program: Command): void {
             dim(`(${running}/${replicas} replicas running)`)
         );
         if (replicas === 0) {
-          console.log(dim("  Note: at 0 replicas no containers remain, so the app definition is gone too."));
+          console.log(dim("  The app definition is kept; bring it back with: kh scale " + app + " <n>"));
         }
       } catch (err) {
         reportError(err);

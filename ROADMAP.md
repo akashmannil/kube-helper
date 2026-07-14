@@ -22,14 +22,15 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 9 | Shared `kh` network — DNS service discovery (`http://<app>` reaches replicas) ✅ |
 | 10 | Volumes & persistent data in the manifest ✅ |
 | 11 | Health checks in the manifest (exec/shell probes, k8s-style readiness) ✅ |
-| 12 | `kh watch` — reconciler daemon: restart dead replicas, enforce desired state |
-| 13 | Rolling updates — zero-downtime image upgrades on `kh apply` |
-| 14 | Built-in reverse proxy / load balancer across replicas of an app |
+| 12 | Desired-state record — per-app meta container (kh's "Deployment object") ✅ |
+| 13 | `kh watch` — reconciler daemon: restart dead replicas, enforce desired state |
+| 14 | Rolling updates — zero-downtime image upgrades on `kh apply` |
+| 15 | Built-in reverse proxy / load balancer across replicas of an app |
 
 ## Phase 3 — Distribution & UX
 
 | # | Feature |
 | - | ------- |
-| 15 | Single-file executable packaging (plug-and-play install) |
-| 16 | Local web dashboard (read-only overview first) |
-| 17 | Dashboard actions: scale / restart / delete from the browser |
+| 16 | Single-file executable packaging (plug-and-play install) |
+| 17 | Local web dashboard (read-only overview first) |
+| 18 | Dashboard actions: scale / restart / delete from the browser |

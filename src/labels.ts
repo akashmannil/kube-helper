@@ -10,8 +10,15 @@ export const REPLICA_LABEL = "kh.replica";
 export const SPEC_HASH_LABEL = "kh.spec-hash";
 export const SPEC_LABEL = "kh.spec";
 export const VOLUME_LABEL = "kh.volume";
+/** "replica" (workload) or "meta" (the app's desired-state record). */
+export const ROLE_LABEL = "kh.role";
 
 /** Container name for replica `index` of app `name` (e.g. kh-web-0). */
 export function containerName(app: string, index: number): string {
   return `kh-${app}-${index}`;
+}
+
+/** Name of the app's meta container (never started; labels only). */
+export function metaContainerName(app: string): string {
+  return `kh-${app}-meta`;
 }

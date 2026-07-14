@@ -1,5 +1,12 @@
 import type Docker from "dockerode";
-import { APP_LABEL, MANAGED_LABEL, REPLICA_LABEL, SPEC_HASH_LABEL, SPEC_LABEL } from "../labels.js";
+import {
+  APP_LABEL,
+  MANAGED_LABEL,
+  REPLICA_LABEL,
+  ROLE_LABEL,
+  SPEC_HASH_LABEL,
+  SPEC_LABEL,
+} from "../labels.js";
 import { appManifestSchema, type AppSpec } from "../manifest/schema.js";
 
 export interface PublishedPort {
@@ -13,6 +20,8 @@ export interface ManagedContainer {
   id: string;
   name: string;
   app: string;
+  /** "replica" runs the workload; "meta" is the app's desired-state record. */
+  role: "replica" | "meta";
   replica: number;
   specHash: string;
   /** Full spec as deployed, parsed back from the kh.spec label (if intact). */
@@ -30,12 +39,23 @@ export interface ManagedContainer {
   createdAt: number;
 }
 
-/** List kh-managed containers (all states), optionally restricted to one app. */
-export async function listManaged(docker: Docker, app?: string): Promise<ManagedContainer[]> {
+/**
+ * List kh-managed *replica* containers (all states), optionally restricted to
+ * one app. Meta containers are excluded unless `includeMeta` is set — most
+ * callers (logs, status detail, reconcile loops) only care about workloads.
+ */
+export async function listManaged(
+  docker: Docker,
+  app?: string,
+  opts: { includeMeta?: boolean } = {}
+): Promise<ManagedContainer[]> {
   const labelFilters = [`${MANAGED_LABEL}=true`];
   if (app) labelFilters.push(`${APP_LABEL}=${app}`);
 
-  const containers = await docker.listContainers({ all: true, filters: { label: labelFilters } });
+  const raw = await docker.listContainers({ all: true, filters: { label: labelFilters } });
+  const containers = opts.includeMeta
+    ? raw
+    : raw.filter((c) => c.Labels[ROLE_LABEL] !== "meta");
 
   const managed = containers.map((c): ManagedContainer => {
     let spec: AppSpec | undefined;
@@ -58,6 +78,7 @@ export async function listManaged(docker: Docker, app?: string): Promise<Managed
       id: c.Id,
       name: c.Names[0]?.replace(/^\//, "") ?? c.Id.slice(0, 12),
       app: c.Labels[APP_LABEL] ?? "",
+      role: c.Labels[ROLE_LABEL] === "meta" ? "meta" : "replica",
       replica: Number(c.Labels[REPLICA_LABEL] ?? -1),
       specHash: c.Labels[SPEC_HASH_LABEL] ?? "",
       spec,
@@ -77,4 +98,31 @@ export async function listManaged(docker: Docker, app?: string): Promise<Managed
   });
 
   return managed.sort((a, b) => a.app.localeCompare(b.app) || a.replica - b.replica);
+}
+
+/** One kh app: its desired spec (from the meta record) and its replicas. */
+export interface AppState {
+  app: string;
+  /** Desired spec — meta record first, newest replica's label as fallback. */
+  spec?: AppSpec;
+  replicas: ManagedContainer[];
+  meta?: ManagedContainer;
+}
+
+/** Group every kh container on the machine into per-app desired+actual state. */
+export async function listApps(docker: Docker, app?: string): Promise<AppState[]> {
+  const all = await listManaged(docker, app, { includeMeta: true });
+  const byApp = new Map<string, AppState>();
+  for (const c of all) {
+    const state = byApp.get(c.app) ?? { app: c.app, replicas: [] };
+    if (c.role === "meta") state.meta = c;
+    else state.replicas.push(c);
+    byApp.set(c.app, state);
+  }
+  for (const state of byApp.values()) {
+    state.spec =
+      state.meta?.spec ??
+      [...state.replicas].sort((a, b) => b.createdAt - a.createdAt).find((c) => c.spec)?.spec;
+  }
+  return [...byApp.values()].sort((a, b) => a.app.localeCompare(b.app));
 }
