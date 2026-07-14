@@ -182,6 +182,31 @@
   </div>
 </dialog>
 
+<dialog id="logs-dialog">
+  <h2 id="logs-title" style="margin-bottom:4px">Logs</h2>
+  <p class="hint" style="margin-bottom:10px">What the app prints while running — the first place to look when something misbehaves.
+  Each line is tagged with the copy it came from; errors are red.</p>
+  <label class="check" style="margin-bottom:8px"><input type="checkbox" id="logs-follow" checked> keep updating</label>
+  <pre id="logs-pre" class="mono" style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:50vh;overflow:auto;font-size:12px;white-space:pre-wrap"></pre>
+  <div class="dialog-actions"><button type="button" id="logs-close">Close</button></div>
+</dialog>
+
+<dialog id="share-dialog">
+  <h2 style="margin-bottom:4px">Share <span id="share-app" class="mono"></span> on one address</h2>
+  <p class="hint" style="margin-bottom:12px">Puts all copies of the app behind a single stable address —
+  <span class="mono">localhost:&lt;port&gt;</span> — and spreads visitors across them automatically.
+  New copies join by themselves when you scale.</p>
+  <div class="field">
+    <label for="share-port">Port on this computer</label>
+    <input type="number" id="share-port" value="8080" min="1" max="65535">
+  </div>
+  <div id="share-error" style="display:none;background:#7f1d1d;color:#fecaca;padding:8px 10px;border-radius:7px;margin-bottom:12px;font-size:13px"></div>
+  <div class="dialog-actions">
+    <button type="button" id="share-cancel">Cancel</button>
+    <button type="button" id="share-submit" class="primary">Share</button>
+  </div>
+</dialog>
+
 <script src="./renderer.js"></script>
 </body>
 </html>

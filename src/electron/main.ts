@@ -7,7 +7,10 @@ import { dirname, join } from "node:path";
 const { app, BrowserWindow, ipcMain, shell } = electron;
 import { fileURLToPath } from "node:url";
 import { createDockerClient, daemonStartHint } from "../docker/client.js";
+import { AppNotFoundError, deleteApp, exposeApp, scaleApp } from "../engine/actions.js";
 import { applyApp } from "../engine/apply.js";
+import { createLogDemuxer } from "../engine/logstream.js";
+import { listManaged } from "../engine/state.js";
 import { appsOverview, engineOverview } from "../engine/view.js";
 import { appManifestSchema } from "../manifest/schema.js";
 
@@ -76,6 +79,48 @@ function registerIpc(): void {
 
   ipcMain.handle("apps:apply", (_event, manifest: unknown) =>
     guard(() => applyApp(docker, parseManifest(manifest)))
+  );
+
+  ipcMain.handle("apps:scale", (_event, app: string, replicas: number) =>
+    guard(() => {
+      if (!Number.isInteger(replicas) || replicas < 0 || replicas > 100) {
+        throw new Error("copies must be an integer between 0 and 100");
+      }
+      return scaleApp(docker, String(app), replicas);
+    })
+  );
+
+  ipcMain.handle("apps:delete", (_event, app: string) => guard(() => deleteApp(docker, String(app))));
+
+  ipcMain.handle("apps:expose", (_event, app: string, hostPort: number) =>
+    guard(() => {
+      if (!Number.isInteger(hostPort) || hostPort < 1 || hostPort > 65535) {
+        throw new Error("the port must be a number between 1 and 65535");
+      }
+      return exposeApp(docker, String(app), hostPort);
+    })
+  );
+
+  ipcMain.handle("apps:logs", (_event, app: string, tail: number) =>
+    guard(async () => {
+      const containers = await listManaged(docker, String(app));
+      if (containers.length === 0) {
+        throw new AppNotFoundError(`No app named "${app}".`);
+      }
+      const lines: Array<{ replica: string; line: string; source: string }> = [];
+      for (const c of containers) {
+        const demux = createLogDemuxer((line, source) => lines.push({ replica: c.name, line, source }));
+        const buf = await docker.getContainer(c.id).logs({
+          stdout: true,
+          stderr: true,
+          tail: Math.min(Math.max(Number(tail) || 200, 1), 2000),
+          follow: false,
+        });
+        demux.feed(buf);
+        demux.end();
+      }
+      return lines;
+    })
   );
 
   // One-click first success: a tiny web server on the first free port.

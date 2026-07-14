@@ -10,6 +10,10 @@ const api = {
   listApps: () => ipcRenderer.invoke("apps:list"),
   applyApp: (manifest: unknown) => ipcRenderer.invoke("apps:apply", manifest),
   deploySample: () => ipcRenderer.invoke("apps:sample"),
+  scaleApp: (app: string, replicas: number) => ipcRenderer.invoke("apps:scale", app, replicas),
+  deleteApp: (app: string) => ipcRenderer.invoke("apps:delete", app),
+  exposeApp: (app: string, hostPort: number) => ipcRenderer.invoke("apps:expose", app, hostPort),
+  fetchLogs: (app: string, tail: number) => ipcRenderer.invoke("apps:logs", app, tail),
   openUrl: (url: string) => ipcRenderer.invoke("shell:open", url),
 };
 
