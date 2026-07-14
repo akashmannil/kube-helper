@@ -35,6 +35,12 @@ export function dashboardHtml(): string {
   tr:last-child td { border-bottom: none; }
   .s-ready { color: var(--green); } .s-warn { color: var(--yellow); } .s-down { color: var(--red); }
   #empty { color: var(--dim); padding: 40px 0; text-align: center; }
+  .actions { margin-left: auto; display: flex; gap: 6px; }
+  button { background: transparent; border: 1px solid var(--line); color: var(--text);
+    border-radius: 6px; padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+  button:disabled { opacity: .4; cursor: wait; }
 </style>
 </head>
 <body>
@@ -48,6 +54,43 @@ export function dashboardHtml(): string {
 <div id="empty" style="display:none">No kh apps on this machine. Deploy one with: kh apply -f app.yaml</div>
 <script>
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+let lastApps = [];
+
+function showError(msg) {
+  const errBox = document.getElementById("error");
+  errBox.textContent = msg;
+  errBox.style.display = "block";
+  setTimeout(() => { errBox.style.display = "none"; }, 5000);
+}
+
+async function act(url, options) {
+  document.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+  try {
+    const res = await fetch(url, options);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+  } catch (e) {
+    showError("action failed: " + (e.message || e));
+  }
+  await tick();
+}
+
+function scaleBy(name, delta) {
+  const app = lastApps.find((a) => a.name === name);
+  if (!app) return;
+  const replicas = Math.max(0, Math.min(100, app.desired + delta));
+  act("/api/apps/" + encodeURIComponent(name) + "/scale", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ replicas }),
+  });
+}
+
+function removeApp(name) {
+  if (!confirm("Delete app \\"" + name + "\\" and all its replicas? (managed volumes are kept)")) return;
+  act("/api/apps/" + encodeURIComponent(name), { method: "DELETE" });
+}
 
 function stateClass(r) {
   if (r.ready) return "s-ready";
@@ -65,6 +108,11 @@ function render(data) {
         <span class="badge \${a.ready >= a.desired && a.desired > 0 ? "ok" : "bad"}">\${a.ready}/\${a.desired} ready</span>
         <span class="meta">\${esc(a.image)}</span>
         <span class="meta">\${a.ports.map(esc).join(", ")}</span>
+        <span class="actions">
+          <button onclick="scaleBy('\${esc(a.name)}', -1)" \${a.desired <= 0 ? "disabled" : ""}>− scale</button>
+          <button onclick="scaleBy('\${esc(a.name)}', 1)" \${a.desired >= 100 ? "disabled" : ""}>+ scale</button>
+          <button class="danger" onclick="removeApp('\${esc(a.name)}')">delete</button>
+        </span>
       </div>
       \${a.replicas.length ? \`
       <table>
@@ -84,6 +132,7 @@ async function tick() {
   const errBox = document.getElementById("error");
   try {
     const apps = await (await fetch("/api/apps")).json();
+    lastApps = apps.apps;
     render(apps);
     errBox.style.display = "none";
     document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString();

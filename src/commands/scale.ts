@@ -1,7 +1,6 @@
 import type { Command } from "commander";
-import { applyApp } from "../engine/apply.js";
-import { listApps, listManaged } from "../engine/state.js";
-import type { AppManifest } from "../manifest/schema.js";
+import { scaleApp } from "../engine/actions.js";
+import { listManaged } from "../engine/state.js";
 import { bold, dim, ok } from "../ui.js";
 import { connectOrExit, formatApplyActions, reportError } from "./util.js";
 
@@ -19,24 +18,7 @@ export function registerScale(program: Command): void {
       if (!docker) return;
 
       try {
-        const [state] = await listApps(docker, app);
-        if (!state) {
-          return reportError(new Error(`No app named "${app}". See all apps with: kh status`));
-        }
-        if (!state.spec) {
-          return reportError(
-            new Error(`"${app}" carries no readable kh.spec label — re-deploy with: kh apply -f <manifest>`)
-          );
-        }
-
-        const manifest: AppManifest = {
-          apiVersion: "kh/v1",
-          kind: "App",
-          metadata: { name: app },
-          spec: { ...state.spec, replicas },
-        };
-
-        const r = await applyApp(docker, manifest);
+        const r = await scaleApp(docker, app, replicas);
         const running = (await listManaged(docker, app)).filter(
           (c) => c.state === "running"
         ).length;
