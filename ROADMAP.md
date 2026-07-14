@@ -10,7 +10,7 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 2 | Docker Engine connection layer + `kh doctor` environment check | ✅ |
 | 3 | Declarative YAML app manifest (`khapp.yaml`) + `kh validate` | ✅ |
 | 4 | `kh apply` — declarative deploy with replicas & reconciliation | ✅ |
-| 5 | `kh status` — app/replica overview across the machine | ⏳ |
+| 5 | `kh status` — app/replica overview across the machine | ✅ |
 | 6 | `kh scale <app> <replicas>` — scale without a manifest file | ⏳ |
 | 7 | `kh logs <app>` — aggregated, prefixed logs across replicas (`--follow`) | ⏳ |
 | 8 | `kh delete <app>` — clean teardown of an app | ⏳ |

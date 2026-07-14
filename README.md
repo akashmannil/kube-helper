@@ -30,6 +30,7 @@ node dist/cli.js --help   # or: npm run dev -- --help
 | `kh doctor` | ✅ commit 2 | Check Docker daemon reachability & machine readiness |
 | `kh validate [-f file]` | ✅ commit 3 | Validate an app manifest without touching Docker |
 | `kh apply [-f file]` | ✅ commit 4 | Declarative deploy: reconcile containers to the manifest |
+| `kh status [app]` (`ps`) | ✅ commit 5 | Overview of all apps, or replica detail for one app |
 
 More commands land commit by commit — see [ROADMAP.md](ROADMAP.md).
 

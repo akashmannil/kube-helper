@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { createRequire } from "node:module";
 import { registerApply } from "./commands/apply.js";
 import { registerDoctor } from "./commands/doctor.js";
+import { registerStatus } from "./commands/status.js";
 import { registerValidate } from "./commands/validate.js";
 
 const require = createRequire(import.meta.url);
@@ -21,6 +22,7 @@ program
 
 registerApply(program);
 registerDoctor(program);
+registerStatus(program);
 registerValidate(program);
 
 program.parseAsync(process.argv).catch((err: unknown) => {
