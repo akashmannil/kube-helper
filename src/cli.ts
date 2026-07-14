@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { createRequire } from "node:module";
+import { registerApply } from "./commands/apply.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerValidate } from "./commands/validate.js";
 
@@ -18,6 +19,7 @@ program
   .version(pkg.version, "-v, --version", "print the kh version")
   .showHelpAfterError();
 
+registerApply(program);
 registerDoctor(program);
 registerValidate(program);
 
