@@ -3,7 +3,7 @@ import { applyApp } from "../engine/apply.js";
 import { listManaged } from "../engine/state.js";
 import { DEFAULT_MANIFEST, loadManifests, ManifestError } from "../manifest/load.js";
 import { bold, dim, info, ok } from "../ui.js";
-import { connectOrExit, reportError } from "./util.js";
+import { connectOrExit, formatApplyActions, reportError } from "./util.js";
 
 export function registerApply(program: Command): void {
   program
@@ -26,21 +26,11 @@ export function registerApply(program: Command): void {
         const name = manifest.metadata.name;
         try {
           const r = await applyApp(docker, manifest, (msg) => info(msg));
-          const actions = [
-            r.created && `${r.created} created`,
-            r.restarted && `${r.restarted} restarted`,
-            r.replaced && `${r.replaced} replaced`,
-            r.removed && `${r.removed} removed`,
-            r.unchanged && `${r.unchanged} unchanged`,
-          ]
-            .filter(Boolean)
-            .join(", ");
-
           const running = (await listManaged(docker, name)).filter(
             (c) => c.state === "running"
           ).length;
           ok(
-            `${bold(name)} reconciled: ${actions || "nothing to do"} ` +
+            `${bold(name)} reconciled: ${formatApplyActions(r)} ` +
               dim(`(${running}/${manifest.spec.replicas} replicas running)`)
           );
         } catch (err) {

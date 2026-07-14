@@ -59,9 +59,11 @@ export function registerStatus(program: Command): void {
 
         const rows = [...byApp.entries()].map(([name, group]) => {
           const running = group.filter((c) => c.state === "running").length;
-          // Desired count comes from the spec stored on the containers themselves.
-          const desired = group[0]?.spec?.replicas ?? group.length;
-          const image = group[0]?.spec?.image ?? group[0]?.image ?? "?";
+          // Desired state comes from the newest container's stored spec —
+          // apply/scale guarantee the newest one records the current count.
+          const newest = [...group].sort((a, b) => b.createdAt - a.createdAt).find((c) => c.spec);
+          const desired = newest?.spec?.replicas ?? group.length;
+          const image = newest?.spec?.image ?? group[0]?.image ?? "?";
           const oldest = Math.min(...group.map((c) => c.createdAt));
           return [name, readiness(running, desired), image, portSummary(group), age(oldest)];
         });

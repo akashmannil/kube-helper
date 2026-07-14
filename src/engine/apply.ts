@@ -91,6 +91,22 @@ export async function applyApp(
     }
   }
 
+  // Desired state is read back from the *newest* container's kh.spec label.
+  // Anything created/replaced above already records the new replica count;
+  // a pure scale-down does not, so stamp it by replacing the newest survivor.
+  if (spec.replicas > 0 && result.created === 0 && result.replaced === 0) {
+    const survivors = await listManaged(docker, app);
+    const newest = survivors.reduce<(typeof survivors)[number] | undefined>(
+      (best, c) => (!best || c.createdAt >= best.createdAt ? c : best),
+      undefined
+    );
+    if (newest?.spec && newest.spec.replicas !== spec.replicas) {
+      await docker.getContainer(newest.id).remove({ force: true });
+      await createReplica(docker, app, newest.replica, spec, hash);
+      result.replaced++;
+    }
+  }
+
   return result;
 }
 
