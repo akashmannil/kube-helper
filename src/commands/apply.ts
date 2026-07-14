@@ -8,9 +8,14 @@ import { connectOrExit, formatApplyActions, reportError } from "./util.js";
 export function registerApply(program: Command): void {
   program
     .command("apply")
-    .description("create or update apps to match a manifest (declarative deploy)")
+    .description("create or update apps to match a manifest (declarative deploy, rolling)")
     .option("-f, --file <path>", "manifest file to apply", DEFAULT_MANIFEST)
-    .action(async (options: { file: string }) => {
+    .option("--timeout <seconds>", "per-replica readiness timeout during rolling updates", "60")
+    .action(async (options: { file: string; timeout: string }) => {
+      const timeout = Number(options.timeout);
+      if (!Number.isFinite(timeout) || timeout < 1) {
+        return reportError(new Error(`--timeout expects seconds ≥ 1, got "${options.timeout}".`));
+      }
       let apps;
       try {
         apps = await loadManifests(options.file);
@@ -25,7 +30,9 @@ export function registerApply(program: Command): void {
       for (const manifest of apps) {
         const name = manifest.metadata.name;
         try {
-          const r = await applyApp(docker, manifest, (msg) => info(msg));
+          const r = await applyApp(docker, manifest, (msg) => info(msg), {
+            readyTimeoutMs: timeout * 1000,
+          });
           const running = (await listManaged(docker, name)).filter(
             (c) => c.state === "running"
           ).length;

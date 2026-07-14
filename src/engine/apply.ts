@@ -1,4 +1,5 @@
 import type Docker from "dockerode";
+import { setTimeout as sleep } from "node:timers/promises";
 import { ensureKhNetwork, KH_NETWORK } from "../docker/network.js";
 import {
   APP_LABEL,
@@ -26,6 +27,11 @@ export interface ApplyResult {
   unchanged: number;
 }
 
+export interface ApplyOptions {
+  /** How long a replaced replica may take to become ready (default 60 s). */
+  readyTimeoutMs?: number;
+}
+
 /**
  * Reconcile one app to its manifest — the heart of kh.
  *
@@ -34,13 +40,18 @@ export interface ApplyResult {
  *   - container, same spec:
  *       running               → leave alone
  *       stopped               → start it
- *   - container, changed spec → remove + recreate (replica-by-replica)
+ *   - container, changed spec → remove + recreate, then WAIT until the new
+ *     replica is ready (running, and healthy if probed) before touching the
+ *     next index — a rolling update. With ≥2 replicas an image upgrade never
+ *     takes the whole app down; if a new replica never becomes ready the
+ *     rollout aborts and the remaining replicas keep running the old spec.
  * Containers with an index beyond `replicas` are removed (scale-down).
  */
 export async function applyApp(
   docker: Docker,
   manifest: AppManifest,
-  onStatus?: (msg: string) => void
+  onStatus?: (msg: string) => void,
+  options: ApplyOptions = {}
 ): Promise<ApplyResult> {
   const app = manifest.metadata.name;
   const spec = manifest.spec;
@@ -99,6 +110,9 @@ export async function applyApp(
     await docker.getContainer(current.id).remove({ force: true });
     await createReplica(docker, app, i, spec, hash);
     result.replaced++;
+    onStatus?.(`rolling update: replica ${i} replaced, waiting until ready…`);
+    await waitForReplicaReady(docker, app, i, options.readyTimeoutMs ?? 60_000);
+    onStatus?.(`rolling update: replica ${i} is ready`);
   }
 
   for (const c of existing) {
@@ -132,6 +146,35 @@ async function createMeta(docker: Docker, app: string, spec: AppSpec, hash: stri
     },
     HostConfig: { NetworkMode: "none" },
   });
+}
+
+/**
+ * Poll until replica `index` is ready. Fails fast if the container dies
+ * (exited/dead) instead of burning the whole timeout.
+ */
+async function waitForReplicaReady(
+  docker: Docker,
+  app: string,
+  index: number,
+  timeoutMs: number
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  const name = containerName(app, index);
+  for (;;) {
+    const replica = (await listManaged(docker, app)).find((c) => c.replica === index);
+    if (replica?.ready) return;
+    if (replica && ["exited", "dead"].includes(replica.state)) {
+      throw new Error(
+        `rolling update aborted: ${name} entered state "${replica.state}" — remaining replicas keep the old spec`
+      );
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `rolling update aborted: ${name} not ready after ${Math.round(timeoutMs / 1000)}s — remaining replicas keep the old spec`
+      );
+    }
+    await sleep(500);
+  }
 }
 
 function restartPolicy(restart: AppSpec["restart"]): { Name: string; MaximumRetryCount?: number } {
