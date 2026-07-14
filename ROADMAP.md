@@ -12,7 +12,7 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 4 | `kh apply` — declarative deploy with replicas & reconciliation | ✅ |
 | 5 | `kh status` — app/replica overview across the machine | ✅ |
 | 6 | `kh scale <app> <replicas>` — scale without a manifest file | ✅ |
-| 7 | `kh logs <app>` — aggregated, prefixed logs across replicas (`--follow`) | ⏳ |
+| 7 | `kh logs <app>` — aggregated, prefixed logs across replicas (`--follow`) | ✅ |
 | 8 | `kh delete <app>` — clean teardown of an app | ⏳ |
 
 ## Phase 2 — Self-healing & production-ish features

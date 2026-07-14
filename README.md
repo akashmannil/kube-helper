@@ -32,6 +32,7 @@ node dist/cli.js --help   # or: npm run dev -- --help
 | `kh apply [-f file]` | ✅ commit 4 | Declarative deploy: reconcile containers to the manifest |
 | `kh status [app]` (`ps`) | ✅ commit 5 | Overview of all apps, or replica detail for one app |
 | `kh scale <app> <n>` | ✅ commit 6 | Scale an app up/down — no manifest file needed |
+| `kh logs <app> [-f] [-n N]` | ✅ commit 7 | Aggregated replica-prefixed logs, live with `--follow` |
 
 More commands land commit by commit — see [ROADMAP.md](ROADMAP.md).
 
