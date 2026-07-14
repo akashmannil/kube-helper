@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
 import { registerApply } from "./commands/apply.js";
+import { registerDelete } from "./commands/delete.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerLogs } from "./commands/logs.js";
 import { registerScale } from "./commands/scale.js";
@@ -23,6 +24,7 @@ program
   .showHelpAfterError();
 
 registerApply(program);
+registerDelete(program);
 registerDoctor(program);
 registerLogs(program);
 registerScale(program);
