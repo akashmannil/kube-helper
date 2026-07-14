@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>kube-helper</title>
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #121820; --panel-2: #0e141b; --line: #1f2937;
+    --text: #d7dde5; --dim: #7b8794; --green: #34d399; --yellow: #fbbf24;
+    --red: #f87171; --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.55 "Segoe UI", system-ui, sans-serif; padding: 22px 26px; }
+  code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; flex-wrap: wrap; }
+  h1 { font-size: 20px; } h1 span { color: var(--accent); }
+  .pill { padding: 2px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: rgba(52,211,153,.15); color: var(--green); }
+  .pill.bad { background: rgba(248,113,113,.15); color: var(--red); }
+  #tagline { color: var(--dim); margin-bottom: 18px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin-bottom: 6px; }
+  .hint { color: var(--dim); font-size: 12.5px; }
+  .hint b { color: var(--text); font-weight: 600; }
+
+  .app-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .app-name { font-size: 16px; font-weight: 700; }
+  .badge { padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge.ok { background: rgba(52,211,153,.15); color: var(--green); }
+  .badge.bad { background: rgba(248,113,113,.15); color: var(--red); }
+  .meta { color: var(--dim); font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th { text-align: left; color: var(--dim); font-weight: 400; font-size: 12px; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .s-ready { color: var(--green); } .s-warn { color: var(--yellow); } .s-down { color: var(--red); }
+
+  button { background: transparent; border: 1px solid var(--line); color: var(--text);
+    border-radius: 7px; padding: 4px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #06222f; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); color: #06222f; }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+  button:disabled { opacity: .4; cursor: wait; }
+
+  #empty { color: var(--dim); text-align: center; padding: 36px 12px; }
+  #error-banner { display: none; background: #7f1d1d; color: #fecaca; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px; }
+  a.local-link { color: var(--accent); text-decoration: none; }
+  a.local-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>kh</span> kube-helper</h1>
+  <span id="docker-pill" class="pill bad">checking Docker…</span>
+  <span id="engine-line" class="meta"></span>
+</header>
+<p id="tagline">Run apps on this computer the easy way — kube-helper drives Docker for you, so you don't need to learn it.</p>
+
+<div id="error-banner"></div>
+
+<section id="docker-down" class="card" style="display:none">
+  <h2>Docker isn't running yet</h2>
+  <p class="hint">kube-helper uses <b>Docker</b> — the program that actually runs your apps in the background.
+  It's installed as <b>Docker Desktop</b>. Open it from the Start menu, wait until it says
+  "Engine running", then press retry.</p>
+  <p style="margin-top:10px"><button id="retry-docker">Retry</button></p>
+</section>
+
+<main id="apps"></main>
+<div id="empty" style="display:none">
+  <p>No apps yet.</p>
+  <p class="hint">An "app" is anything you want this computer to run — a website, a database, an API.</p>
+</div>
+
+<script src="./renderer.js"></script>
+</body>
+</html>

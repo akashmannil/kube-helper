@@ -35,5 +35,13 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 17 | Local web dashboard (read-only overview first) ✅ |
 | 18 | Dashboard actions: scale / delete from the browser ✅ |
 
-**All 18 roadmap items shipped.** Ideas for a Phase 4 live at the end of
-[docs/commits/commit_18.md](docs/commits/commit_18.md).
+## Phase 4 — Desktop app (GUI for people who don't know Docker)
+
+| # | Feature |
+| - | ------- |
+| 19 | Electron shell — desktop window, sandboxed UI over the same engine ✅ |
+| 20 | "New app" wizard — deploy from an explained form, no YAML |
+| 21 | Operate from the GUI — scale, logs, edit (rolling), delete, share on a port |
+| 22 | Windows packaging — installable/portable desktop app |
+
+Further ideas live at the end of [docs/commits/commit_18.md](docs/commits/commit_18.md).
