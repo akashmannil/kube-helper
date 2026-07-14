@@ -1,4 +1,5 @@
 import type Docker from "dockerode";
+import { ensureKhNetwork, KH_NETWORK } from "../docker/network.js";
 import {
   APP_LABEL,
   MANAGED_LABEL,
@@ -54,6 +55,9 @@ export async function applyApp(
 
   if (spec.replicas > 0) {
     result.image = await ensureImage(docker, spec.image, onStatus);
+    if ((await ensureKhNetwork(docker)) === "created") {
+      onStatus?.(`Created the shared "${KH_NETWORK}" network`);
+    }
   }
 
   const existing = await listManaged(docker, app);
@@ -154,6 +158,13 @@ async function createReplica(
     HostConfig: {
       PortBindings: portBindings,
       RestartPolicy: restartPolicy(spec.restart),
+    },
+    NetworkingConfig: {
+      EndpointsConfig: {
+        // Container names resolve automatically on a user-defined network;
+        // the app-name alias makes `http://<app>` reach any replica.
+        [KH_NETWORK]: { Aliases: [app] },
+      },
     },
   });
   await container.start();

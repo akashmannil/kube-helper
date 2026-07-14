@@ -55,6 +55,10 @@ Edit the manifest and `kh apply` again: only genuinely changed replicas are repl
 replicas restart. Excess replicas are removed. Crashed processes revive via Docker restart
 policy. kh never touches containers it didn't create.
 
+Apps find each other by name: every replica joins the shared `kh` network, where
+`http://<app>` resolves to that app's replicas (commit 9) — deploy `api` and `db`, and `api`
+just connects to `db:5432`.
+
 ## Commands
 
 | Command | Status | Description |

@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { connectionTarget, createDockerClient, daemonStartHint } from "../docker/client.js";
+import { KH_NETWORK } from "../docker/network.js";
 import { dim, fail, info, ok } from "../ui.js";
 import { MANAGED_LABEL } from "../labels.js";
 
@@ -34,6 +35,12 @@ export function registerDoctor(program: Command): void {
           `${engineInfo.Images} images present`
       );
       info(`${managed.length} kh-managed container(s) on this machine`);
+      const networks = await docker.listNetworks({ filters: { name: [KH_NETWORK] } });
+      info(
+        networks.some((n) => n.Name === KH_NETWORK)
+          ? `Shared "${KH_NETWORK}" network is present`
+          : `Shared "${KH_NETWORK}" network not created yet (first deploy creates it)`
+      );
       ok("Ready to run kh apps");
     });
 }

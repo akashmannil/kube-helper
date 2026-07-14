@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { KH_NETWORK, removeKhNetworkIfIdle } from "../docker/network.js";
 import { listManaged, type ManagedContainer } from "../engine/state.js";
 import { bold, dim, ok } from "../ui.js";
 import { connectOrExit, reportError } from "./util.js";
@@ -40,6 +41,10 @@ export function registerDelete(program: Command): void {
             group.map((c) => docker.getContainer(c.id).remove({ force: true }))
           );
           ok(`${bold(name)} deleted ${dim(`(${group.length} container(s) removed)`)}`);
+        }
+
+        if (options.all && (await removeKhNetworkIfIdle(docker))) {
+          console.log(dim(`  Removed the shared "${KH_NETWORK}" network.`));
         }
       } catch (err) {
         reportError(err);
