@@ -12,6 +12,7 @@ import type { AppManifest, AppSpec } from "../manifest/schema.js";
 import { specHash } from "./hash.js";
 import { ensureImage } from "./image.js";
 import { listManaged } from "./state.js";
+import { ensureVolume } from "./volumes.js";
 
 export interface ApplyResult {
   app: string;
@@ -142,6 +143,17 @@ async function createReplica(
     portBindings[key] = [{ HostPort: p.host !== undefined ? String(p.host + index) : "" }];
   }
 
+  // Structured Mounts (not Binds strings): Windows host paths contain colons.
+  const mounts = [];
+  for (const v of spec.volumes) {
+    mounts.push({
+      Type: (v.name !== undefined ? "volume" : "bind") as "volume" | "bind",
+      Source: v.name !== undefined ? await ensureVolume(docker, app, v.name, index) : v.host!,
+      Target: v.mount,
+      ReadOnly: v.readOnly,
+    });
+  }
+
   const container = await docker.createContainer({
     name: containerName(app, index),
     Image: spec.image,
@@ -158,6 +170,7 @@ async function createReplica(
     HostConfig: {
       PortBindings: portBindings,
       RestartPolicy: restartPolicy(spec.restart),
+      Mounts: mounts,
     },
     NetworkingConfig: {
       EndpointsConfig: {

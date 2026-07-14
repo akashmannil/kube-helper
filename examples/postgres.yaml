@@ -1,0 +1,15 @@
+# A database with persistent per-replica storage, reachable from other kh
+# apps at postgres:5432 via the shared kh network (commit 9).
+# Data lives in the managed volume kh-postgres-data-0 and survives
+# redeploys and spec changes; remove it with: kh delete postgres --volumes
+apiVersion: kh/v1
+kind: App
+metadata:
+  name: postgres
+spec:
+  image: postgres:16-alpine
+  env:
+    POSTGRES_PASSWORD: change-me
+  volumes:
+    - name: data
+      mount: /var/lib/postgresql/data

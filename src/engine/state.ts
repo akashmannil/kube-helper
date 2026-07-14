@@ -53,7 +53,8 @@ export async function listManaged(docker: Docker, app?: string): Promise<Managed
       image: c.Image,
       state: c.State,
       status: c.Status,
-      ports: c.Ports.map((p) => ({
+      // Ports is null (not []) for containers with no exposed ports.
+      ports: (c.Ports ?? []).map((p) => ({
         container: p.PrivatePort,
         host: p.PublicPort,
         protocol: p.Type,

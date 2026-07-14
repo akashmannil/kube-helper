@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { parseAllDocuments } from "yaml";
 import { appManifestSchema, type AppManifest } from "./schema.js";
 
@@ -40,6 +41,17 @@ export async function loadManifests(filePath: string): Promise<AppManifest[]> {
         .join("\n");
       throw new ManifestError(`Invalid app manifest in "${filePath}"${where}:\n${issues}`);
     }
+
+    // Bind-mount paths must be absolutized *now*, against the manifest's own
+    // directory: the spec is stored on containers and later replayed by
+    // scale/watch from a different working directory with no file in sight.
+    const manifestDir = dirname(resolve(filePath));
+    for (const volume of result.data.spec.volumes) {
+      if (volume.host !== undefined && !isAbsolute(volume.host)) {
+        volume.host = resolve(manifestDir, volume.host);
+      }
+    }
+
     apps.push(result.data);
   });
 

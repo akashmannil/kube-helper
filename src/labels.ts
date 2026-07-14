@@ -9,6 +9,7 @@ export const APP_LABEL = "kh.app";
 export const REPLICA_LABEL = "kh.replica";
 export const SPEC_HASH_LABEL = "kh.spec-hash";
 export const SPEC_LABEL = "kh.spec";
+export const VOLUME_LABEL = "kh.volume";
 
 /** Container name for replica `index` of app `name` (e.g. kh-web-0). */
 export function containerName(app: string, index: number): string {
