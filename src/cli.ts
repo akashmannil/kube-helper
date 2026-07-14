@@ -4,6 +4,7 @@ import { Command } from "commander";
 // when bundling for the single-file executable (commit 16).
 import pkg from "../package.json" with { type: "json" };
 import { registerApply } from "./commands/apply.js";
+import { registerDashboard } from "./commands/dashboard.js";
 import { registerDelete } from "./commands/delete.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerExpose } from "./commands/expose.js";
@@ -25,6 +26,7 @@ program
   .showHelpAfterError();
 
 registerApply(program);
+registerDashboard(program);
 registerDelete(program);
 registerDoctor(program);
 registerExpose(program);

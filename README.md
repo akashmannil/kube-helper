@@ -79,6 +79,7 @@ just connects to `db:5432`.
 | `kh delete <app> \| --all` (`rm`) | ✅ commit 8 | Remove an app's containers (only kh-managed ones) |
 | `kh watch [-i sec] [--once]` | ✅ commit 13 | Self-healing reconciler: recreate, restart, heal |
 | `kh expose <app> <port>` | ✅ commit 15 | Load-balancing proxy for an app on one stable host port |
+| `kh dashboard [-p port]` | ✅ commit 17 | Local web UI + JSON API over all kh apps |
 
 More commands land commit by commit — see [ROADMAP.md](ROADMAP.md).
 
