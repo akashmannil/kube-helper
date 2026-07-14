@@ -8,6 +8,7 @@ import { registerLogs } from "./commands/logs.js";
 import { registerScale } from "./commands/scale.js";
 import { registerStatus } from "./commands/status.js";
 import { registerValidate } from "./commands/validate.js";
+import { registerWatch } from "./commands/watch.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
@@ -30,6 +31,7 @@ registerLogs(program);
 registerScale(program);
 registerStatus(program);
 registerValidate(program);
+registerWatch(program);
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err));

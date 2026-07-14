@@ -71,6 +71,7 @@ just connects to `db:5432`.
 | `kh scale <app> <n>` | ✅ commit 6 | Scale an app up/down — no manifest file needed |
 | `kh logs <app> [-f] [-n N]` | ✅ commit 7 | Aggregated replica-prefixed logs, live with `--follow` |
 | `kh delete <app> \| --all` (`rm`) | ✅ commit 8 | Remove an app's containers (only kh-managed ones) |
+| `kh watch [-i sec] [--once]` | ✅ commit 13 | Self-healing reconciler: recreate, restart, heal |
 
 More commands land commit by commit — see [ROADMAP.md](ROADMAP.md).
 
