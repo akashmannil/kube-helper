@@ -154,11 +154,23 @@ async function createReplica(
     });
   }
 
+  const SECOND = 1_000_000_000; // Docker healthcheck durations are nanoseconds
+  const hc = spec.healthcheck;
+
   const container = await docker.createContainer({
     name: containerName(app, index),
     Image: spec.image,
     Cmd: spec.command,
     Env: Object.entries(spec.env).map(([k, v]) => `${k}=${v}`),
+    Healthcheck: hc
+      ? {
+          Test: hc.exec ? ["CMD", ...hc.exec] : ["CMD-SHELL", hc.shell ?? ""],
+          Interval: hc.intervalSeconds * SECOND,
+          Timeout: hc.timeoutSeconds * SECOND,
+          Retries: hc.retries,
+          StartPeriod: hc.startPeriodSeconds * SECOND,
+        }
+      : undefined,
     Labels: {
       [MANAGED_LABEL]: "true",
       [APP_LABEL]: app,

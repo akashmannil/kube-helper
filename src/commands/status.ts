@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { listManaged, type ManagedContainer } from "../engine/state.js";
-import { age, dim, green, red, table } from "../ui.js";
+import { age, dim, green, red, table, yellow } from "../ui.js";
 import { connectOrExit, reportError } from "./util.js";
 
 /** Unique published ports (Docker lists IPv4 and IPv6 bindings separately). */
@@ -43,7 +43,7 @@ export function registerStatus(program: Command): void {
           // Detail view: one row per replica.
           const rows = containers.map((c) => [
             c.name,
-            c.state === "running" ? green(c.state) : red(c.state),
+            c.ready ? green(c.state) : c.state === "running" ? yellow(c.state) : red(c.state),
             c.status,
             portSummary([c]),
           ]);
@@ -58,7 +58,8 @@ export function registerStatus(program: Command): void {
         }
 
         const rows = [...byApp.entries()].map(([name, group]) => {
-          const running = group.filter((c) => c.state === "running").length;
+          // Ready = running and healthy (when a healthcheck exists), like k8s.
+          const running = group.filter((c) => c.ready).length;
           // Desired state comes from the newest container's stored spec —
           // apply/scale guarantee the newest one records the current count.
           const newest = [...group].sort((a, b) => b.createdAt - a.createdAt).find((c) => c.spec);

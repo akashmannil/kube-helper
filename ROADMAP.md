@@ -21,7 +21,7 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | - | ------- |
 | 9 | Shared `kh` network — DNS service discovery (`http://<app>` reaches replicas) ✅ |
 | 10 | Volumes & persistent data in the manifest ✅ |
-| 11 | Health checks in the manifest (exec/http probes) |
+| 11 | Health checks in the manifest (exec/shell probes, k8s-style readiness) ✅ |
 | 12 | `kh watch` — reconciler daemon: restart dead replicas, enforce desired state |
 | 13 | Rolling updates — zero-downtime image upgrades on `kh apply` |
 | 14 | Built-in reverse proxy / load balancer across replicas of an app |

@@ -20,8 +20,12 @@ export interface ManagedContainer {
   image: string;
   /** Docker lifecycle state: running | exited | created | restarting | paused | dead */
   state: string;
-  /** Human status line, e.g. "Up 5 minutes" */
+  /** Human status line, e.g. "Up 5 minutes (healthy)" */
   status: string;
+  /** Healthcheck verdict, if the container has one. */
+  health?: "healthy" | "unhealthy" | "starting";
+  /** running, and healthy if a healthcheck exists — the k8s notion of Ready. */
+  ready: boolean;
   ports: PublishedPort[];
   createdAt: number;
 }
@@ -43,6 +47,13 @@ export async function listManaged(docker: Docker, app?: string): Promise<Managed
         // Label was tampered with or written by a future kh version; treat as unknown.
       }
     }
+    // The list endpoint reports health only inside the human status line,
+    // e.g. "Up 2 minutes (unhealthy)" — parsing it beats one inspect per container.
+    let health: ManagedContainer["health"];
+    if (c.Status.includes("(healthy)")) health = "healthy";
+    else if (c.Status.includes("(unhealthy)")) health = "unhealthy";
+    else if (c.Status.includes("(health: starting)")) health = "starting";
+
     return {
       id: c.Id,
       name: c.Names[0]?.replace(/^\//, "") ?? c.Id.slice(0, 12),
@@ -53,6 +64,8 @@ export async function listManaged(docker: Docker, app?: string): Promise<Managed
       image: c.Image,
       state: c.State,
       status: c.Status,
+      health,
+      ready: c.State === "running" && (health === undefined || health === "healthy"),
       // Ports is null (not []) for containers with no exposed ports.
       ports: (c.Ports ?? []).map((p) => ({
         container: p.PrivatePort,

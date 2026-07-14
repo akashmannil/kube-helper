@@ -27,6 +27,21 @@ const volumeSchema = z
     message: "specify exactly one of `name` (managed volume) or `host` (bind mount)",
   });
 
+const healthcheckSchema = z
+  .strictObject({
+    /** argv probe, run without a shell: ["wget", "-qO-", "http://127.0.0.1/"] */
+    exec: z.array(z.string()).min(1).optional(),
+    /** shell probe: "curl -fsS http://127.0.0.1:8080/health || exit 1" */
+    shell: z.string().min(1).optional(),
+    intervalSeconds: z.number().int().min(1).default(10),
+    timeoutSeconds: z.number().int().min(1).default(3),
+    retries: z.number().int().min(1).default(3),
+    startPeriodSeconds: z.number().int().min(0).default(5),
+  })
+  .refine((h) => (h.exec !== undefined) !== (h.shell !== undefined), {
+    message: "specify exactly one of `exec` (argv array) or `shell` (command string)",
+  });
+
 export const appManifestSchema = z.strictObject({
   apiVersion: z.literal("kh/v1"),
   kind: z.literal("App"),
@@ -42,6 +57,7 @@ export const appManifestSchema = z.strictObject({
     env: z.record(z.string(), envValue).default({}),
     ports: z.array(portSchema).default([]),
     volumes: z.array(volumeSchema).default([]),
+    healthcheck: healthcheckSchema.optional(),
     restart: z.enum(["no", "always", "on-failure", "unless-stopped"]).default("always"),
   }),
 });
