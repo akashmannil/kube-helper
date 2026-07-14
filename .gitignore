@@ -2,5 +2,6 @@ node_modules/
 dist/
 build/
 dist-bin/
+release/
 *.log
 .DS_Store

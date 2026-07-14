@@ -2,6 +2,7 @@
   "name": "kube-helper",
   "version": "0.1.0",
   "description": "Plug-and-play container orchestration for a single machine — the useful parts of Kubernetes on plain Docker.",
+  "author": "mannilakash",
   "type": "module",
   "main": "dist/electron/main.js",
   "bin": {
@@ -12,7 +13,25 @@
     "dev": "tsx src/cli.ts",
     "package": "node scripts/package.mjs",
     "gui:build": "node scripts/build-gui.mjs && tsc -p tsconfig.gui.json",
-    "gui": "npm run build && npm run gui:build && electron ."
+    "gui": "npm run build && npm run gui:build && electron .",
+    "dist": "npm run build && npm run gui:build && electron-builder --win"
+  },
+  "build": {
+    "appId": "dev.kubehelper.desktop",
+    "productName": "kube-helper",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "npmRebuild": false
   },
   "files": [
     "dist"

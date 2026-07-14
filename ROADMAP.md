@@ -42,6 +42,6 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 19 | Electron shell — desktop window, sandboxed UI over the same engine ✅ |
 | 20 | "New app" wizard — deploy from an explained form, no YAML ✅ |
 | 21 | Operate from the GUI — scale, logs, edit (rolling), delete, share on a port ✅ |
-| 22 | Windows packaging — installable/portable desktop app |
+| 22 | Windows packaging — installable/portable desktop app ✅ |
 
 Further ideas live at the end of [docs/commits/commit_18.md](docs/commits/commit_18.md).

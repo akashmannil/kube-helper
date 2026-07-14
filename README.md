@@ -28,6 +28,18 @@ Or build the self-contained executable — one file, no Node.js needed on the ta
 npm run package     # → dist-bin/kh.exe (Windows) or dist-bin/kh
 ```
 
+## The desktop app (no Docker knowledge required)
+
+There's also a full GUI — the same engine with every command as an explained, editable form:
+deploy from a wizard instead of YAML, scale with +/− buttons, view logs, edit apps with rolling
+updates, share an app behind one load-balanced address, all with plain-language help
+("copies" instead of replicas, "app package" instead of image).
+
+```sh
+npm run gui         # develop: opens the desktop window
+npm run dist        # ship:   → release/kube-helper 0.1.0.exe (portable Windows app)
+```
+
 ## The 60-second tour
 
 Describe an app in one small file:
