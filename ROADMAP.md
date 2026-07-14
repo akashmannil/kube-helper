@@ -31,6 +31,6 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 
 | # | Feature |
 | - | ------- |
-| 16 | Single-file executable packaging (plug-and-play install) |
+| 16 | Single-file executable packaging (plug-and-play install) ✅ |
 | 17 | Local web dashboard (read-only overview first) |
 | 18 | Dashboard actions: scale / restart / delete from the browser |

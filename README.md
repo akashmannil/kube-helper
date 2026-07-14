@@ -22,6 +22,12 @@ npm run build
 npm link            # puts `kh` on your PATH (or use: node dist/cli.js …)
 ```
 
+Or build the self-contained executable — one file, no Node.js needed on the target machine:
+
+```sh
+npm run package     # → dist-bin/kh.exe (Windows) or dist-bin/kh
+```
+
 ## The 60-second tour
 
 Describe an app in one small file:

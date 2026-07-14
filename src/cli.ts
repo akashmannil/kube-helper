@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { createRequire } from "node:module";
+// A static JSON import (not createRequire) so esbuild can inline the version
+// when bundling for the single-file executable (commit 16).
+import pkg from "../package.json" with { type: "json" };
 import { registerApply } from "./commands/apply.js";
 import { registerDelete } from "./commands/delete.js";
 import { registerDoctor } from "./commands/doctor.js";
@@ -10,9 +12,6 @@ import { registerScale } from "./commands/scale.js";
 import { registerStatus } from "./commands/status.js";
 import { registerValidate } from "./commands/validate.js";
 import { registerWatch } from "./commands/watch.js";
-
-const require = createRequire(import.meta.url);
-const pkg = require("../package.json") as { version: string };
 
 const program = new Command();
 
