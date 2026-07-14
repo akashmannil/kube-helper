@@ -72,6 +72,19 @@
   .env-row input { flex: 1; }
   #form-error { display: none; background: #7f1d1d; color: #fecaca; padding: 8px 10px; border-radius: 7px; margin-bottom: 12px; font-size: 13px; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  /* Easy/Developer mode. Static markup carries both wordings and CSS shows the
+     right one, so the only JS is flipping body[data-mode]. */
+  .mode-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .mode-toggle button { border: none; border-radius: 0; padding: 4px 14px; font-size: 12.5px; }
+  .mode-toggle button.active { background: var(--accent); color: #06222f; font-weight: 700; }
+  .mode-toggle button.active:hover { color: #06222f; }
+  .dev-only { display: none; }
+  body[data-mode="dev"] .dev-only { display: revert; }
+  body[data-mode="dev"] .easy-only { display: none; }
+  select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 10px; font: inherit; }
+  select:focus { outline: none; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -79,12 +92,19 @@
   <h1><span>kh</span> kube-helper</h1>
   <span id="docker-pill" class="pill bad">checking Docker…</span>
   <span id="engine-line" class="meta"></span>
-  <span style="margin-left:auto; display:flex; gap:8px">
+  <span style="margin-left:auto; display:flex; gap:10px; align-items:center">
+    <span id="mode-toggle" class="mode-toggle" title="Easy mode uses plain language and hides advanced options. Developer mode shows real Docker/Kubernetes terms and every option.">
+      <button data-mode="easy" class="active">Easy</button>
+      <button data-mode="dev">Developer</button>
+    </span>
     <button id="btn-sample" title="Deploys a small demo website so you can see how this works">Run sample app</button>
     <button id="btn-new" class="primary">＋ New app</button>
   </span>
 </header>
-<p id="tagline">Run apps on this computer the easy way — kube-helper drives Docker for you, so you don't need to learn it.</p>
+<p id="tagline">
+  <span class="easy-only">Run apps on this computer the easy way — kube-helper drives Docker for you, so you don't need to learn it.</span>
+  <span class="dev-only">Single-machine container orchestration on the Docker Engine API — declarative apps, replicas, reconciliation, rolling updates.</span>
+</p>
 
 <div id="error-banner"></div>
 
@@ -105,17 +125,23 @@
 
 <dialog id="new-app">
   <h2 id="dialog-title" style="margin-bottom:4px">New app</h2>
-  <p class="hint" style="margin-bottom:16px">Fill this in and kube-helper does the Docker work for you — downloading, starting, and keeping it running.</p>
+  <p class="hint" style="margin-bottom:16px">
+    <span class="easy-only">Fill this in and kube-helper does the Docker work for you — downloading, starting, and keeping it running.</span>
+    <span class="dev-only">Builds a <span class="mono">kh/v1 App</span> manifest and runs it through the same reconciler as <span class="mono">kh apply</span>.</span>
+  </p>
   <div id="form-error"></div>
 
   <div class="field">
-    <label for="f-name">Name</label>
+    <label for="f-name"><span class="easy-only">Name</span><span class="dev-only">metadata.name</span></label>
     <input type="text" id="f-name" placeholder="my-blog" spellcheck="false">
-    <p class="hint">A short name you'll recognise. Lowercase letters, numbers and dashes only.</p>
+    <p class="hint">
+      <span class="easy-only">A short name you'll recognise. Lowercase letters, numbers and dashes only.</span>
+      <span class="dev-only">DNS-1123 label (lowercase alphanumerics and dashes). Used for container names <span class="mono">kh-&lt;name&gt;-&lt;i&gt;</span> and the network alias.</span>
+    </p>
   </div>
 
   <div class="field">
-    <label for="f-image">App package (image)</label>
+    <label for="f-image"><span class="easy-only">App package (image)</span><span class="dev-only">spec.image</span></label>
     <input type="text" id="f-image" list="image-suggestions" placeholder="nginx:alpine" spellcheck="false">
     <datalist id="image-suggestions">
       <option value="nginx:alpine">tiny web server — great for a first try</option>
@@ -125,57 +151,135 @@
       <option value="redis:alpine">Redis — fast in-memory data store</option>
       <option value="ghost:5-alpine">Ghost blogging platform</option>
     </datalist>
-    <p class="hint">Think of it as the app's installer — it's downloaded automatically from Docker Hub.
-    Pick a suggestion, or paste any image name a developer gave you.</p>
+    <p class="hint">
+      <span class="easy-only">Think of it as the app's installer — it's downloaded automatically from Docker Hub.
+      Pick a suggestion, or paste any image name a developer gave you.</span>
+      <span class="dev-only">Any registry reference (<span class="mono">repo:tag</span> or <span class="mono">host/repo@sha256:…</span>); pulled if absent locally.</span>
+    </p>
   </div>
 
   <div class="field">
-    <label for="f-replicas">Copies</label>
+    <label for="f-replicas"><span class="easy-only">Copies</span><span class="dev-only">spec.replicas</span></label>
     <input type="number" id="f-replicas" value="1" min="0" max="100">
-    <p class="hint">How many identical copies run at once. With 2 or more, the app stays up even if one copy crashes,
-    and updates happen with no downtime.</p>
+    <p class="hint">
+      <span class="easy-only">How many identical copies run at once. With 2 or more, the app stays up even if one copy crashes,
+      and updates happen with no downtime.</span>
+      <span class="dev-only">Desired replica count (0–100). Each is a container <span class="mono">kh-&lt;name&gt;-&lt;i&gt;</span>; scaling is reconciled per index without disturbing existing replicas.</span>
+    </p>
+  </div>
+
+  <div class="field dev-only">
+    <label for="f-command">spec.command <span class="hint" style="display:inline">(optional override)</span></label>
+    <input type="text" id="f-command" placeholder='e.g. nginx -g "daemon off;"' spellcheck="false">
+    <p class="hint">Overrides the image's default command. Parsed as a shell-style argv (quotes respected). Leave blank to keep the image default.</p>
   </div>
 
   <div class="field">
-    <label class="check"><input type="checkbox" id="f-web" checked> Reachable in your browser</label>
+    <label class="check"><input type="checkbox" id="f-web" checked>
+      <span class="easy-only">Reachable in your browser</span><span class="dev-only">Publish a port</span></label>
     <div class="subfields" id="web-fields">
       <div class="row">
         <div>
-          <label for="f-hport">Port on this computer</label>
+          <label for="f-hport"><span class="easy-only">Port on this computer</span><span class="dev-only">host port</span></label>
           <input type="number" id="f-hport" value="8080" min="1" max="65535">
-          <p class="hint">You'll open the app at <span class="mono">localhost:&lt;port&gt;</span>. Each extra copy uses the next port up.</p>
+          <p class="hint">
+            <span class="easy-only">You'll open the app at <span class="mono">localhost:&lt;port&gt;</span>. Each extra copy uses the next port up.</span>
+            <span class="dev-only">Bound on the host; replica <span class="mono">i</span> gets <span class="mono">host+i</span> so replicas never collide.</span>
+          </p>
         </div>
         <div>
-          <label for="f-cport">Port inside the app</label>
+          <label for="f-cport"><span class="easy-only">Port inside the app</span><span class="dev-only">container port</span></label>
           <input type="number" id="f-cport" value="80" min="1" max="65535">
-          <p class="hint">Where the app listens internally — web servers are usually 80. The suggestion list's apps use their defaults.</p>
+          <p class="hint">
+            <span class="easy-only">Where the app listens internally — web servers are usually 80. The suggestion list's apps use their defaults.</span>
+            <span class="dev-only">The port the process listens on inside the container.</span>
+          </p>
+        </div>
+        <div class="dev-only">
+          <label for="f-proto">protocol</label>
+          <select id="f-proto"><option value="tcp">tcp</option><option value="udp">udp</option></select>
         </div>
       </div>
     </div>
   </div>
 
   <div class="field">
-    <label>Settings <span class="hint" style="display:inline">(optional)</span></label>
+    <label><span class="easy-only">Settings</span><span class="dev-only">spec.env</span> <span class="hint" style="display:inline">(optional)</span></label>
     <div id="env-rows"></div>
-    <button type="button" id="btn-add-env">+ add setting</button>
-    <p class="hint">Passed to the app as environment variables — e.g. a database needs
-    <span class="mono">POSTGRES_PASSWORD</span> = <span class="mono">something-secret</span>.</p>
+    <button type="button" id="btn-add-env">+ add <span class="easy-only">setting</span><span class="dev-only">variable</span></button>
+    <p class="hint">
+      <span class="easy-only">Passed to the app as environment variables — e.g. a database needs
+      <span class="mono">POSTGRES_PASSWORD</span> = <span class="mono">something-secret</span>.</span>
+      <span class="dev-only">Environment variables passed to every replica.</span>
+    </p>
   </div>
 
   <div class="field">
-    <label class="check"><input type="checkbox" id="f-data"> Keep this app's data</label>
+    <label class="check"><input type="checkbox" id="f-data">
+      <span class="easy-only">Keep this app's data</span><span class="dev-only">Mount a volume</span></label>
     <div class="subfields" id="data-fields" style="display:none">
-      <label for="f-mount">Folder inside the app to protect</label>
+      <div class="dev-only" style="margin-bottom:8px">
+        <label for="f-voltype">type</label>
+        <select id="f-voltype">
+          <option value="managed">managed volume (kh-&lt;app&gt;-data-&lt;i&gt;, per replica)</option>
+          <option value="bind">bind mount (host folder)</option>
+        </select>
+      </div>
+      <div class="dev-only" id="bind-host-field" style="display:none; margin-bottom:8px">
+        <label for="f-volhost">host folder</label>
+        <input type="text" id="f-volhost" placeholder="./data or D:\data" spellcheck="false">
+        <p class="hint">Absolute, or relative to where you'd run <span class="mono">kh apply</span>.</p>
+      </div>
+      <label for="f-mount"><span class="easy-only">Folder inside the app to protect</span><span class="dev-only">mount path (in container)</span></label>
       <input type="text" id="f-mount" value="/data" spellcheck="false">
-      <p class="hint">Files saved there survive updates, restarts and crashes. For PostgreSQL use
-      <span class="mono">/var/lib/postgresql/data</span>, for MySQL <span class="mono">/var/lib/mysql</span>.</p>
+      <p class="hint">
+        <span class="easy-only">Files saved there survive updates, restarts and crashes. For PostgreSQL use
+        <span class="mono">/var/lib/postgresql/data</span>, for MySQL <span class="mono">/var/lib/mysql</span>.</span>
+        <span class="dev-only">Absolute container path. Managed volumes are per-replica so stateful replicas never share a data dir.</span>
+      </p>
+      <label class="check dev-only" style="margin-top:8px"><input type="checkbox" id="f-volro"> read-only</label>
     </div>
   </div>
 
   <div class="field">
-    <label class="check"><input type="checkbox" id="f-health"> Auto health check (web apps)</label>
-    <p class="hint" style="margin-left:24px">kube-helper pings the app every few seconds; copies that stop answering
-    are marked unhealthy and restarted by the watcher.</p>
+    <label class="check"><input type="checkbox" id="f-health">
+      <span class="easy-only">Auto health check (web apps)</span><span class="dev-only">Health probe</span></label>
+    <p class="hint" style="margin-left:24px">
+      <span class="easy-only">kube-helper pings the app every few seconds; copies that stop answering
+      are marked unhealthy and restarted by the watcher.</span>
+      <span class="dev-only">Compiles to a Docker HEALTHCHECK; readiness (status READY) and <span class="mono">kh watch</span> restarts key off it.</span>
+    </p>
+    <div class="subfields dev-only" id="health-fields" style="display:none">
+      <label for="f-hcmode">probe</label>
+      <select id="f-hcmode">
+        <option value="auto">auto — HTTP GET on the published port (wget)</option>
+        <option value="shell">shell command (exit 0 = healthy)</option>
+      </select>
+      <div id="hc-shell-field" style="display:none; margin-top:8px">
+        <label for="f-hcshell">command</label>
+        <input type="text" id="f-hcshell" placeholder="curl -fsS http://127.0.0.1:8080/health || exit 1" spellcheck="false">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><label for="f-hcinterval">interval (s)</label><input type="number" id="f-hcinterval" value="5" min="1"></div>
+        <div><label for="f-hcstart">start period (s)</label><input type="number" id="f-hcstart" value="5" min="0"></div>
+        <div><label for="f-hcretries">retries</label><input type="number" id="f-hcretries" value="3" min="1"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field dev-only">
+    <label for="f-restart">spec.restart</label>
+    <select id="f-restart">
+      <option value="always">always (default)</option>
+      <option value="unless-stopped">unless-stopped</option>
+      <option value="on-failure">on-failure</option>
+      <option value="no">no</option>
+    </select>
+    <p class="hint">Docker restart policy for crashing processes — orthogonal to <span class="mono">kh watch</span>, which handles removed/stopped/unhealthy replicas.</p>
+  </div>
+
+  <div class="dev-only" style="margin-bottom:6px">
+    <button type="button" id="btn-preview">Preview manifest (YAML)</button>
   </div>
 
   <div class="dialog-actions">
@@ -206,6 +310,17 @@
   <div class="dialog-actions">
     <button type="button" id="share-cancel">Cancel</button>
     <button type="button" id="share-submit" class="primary">Share</button>
+  </div>
+</dialog>
+
+<dialog id="manifest-dialog">
+  <h2 id="manifest-title" style="margin-bottom:4px">Manifest</h2>
+  <p class="hint" style="margin-bottom:10px">This is the <span class="mono">kh/v1</span> App manifest for this configuration.
+  Save it as <span class="mono">app.yaml</span> and deploy from a terminal with <span class="mono">kh apply -f app.yaml</span> — the GUI and CLI produce identical results.</p>
+  <pre id="manifest-pre" class="mono" style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:50vh;overflow:auto;font-size:12.5px;white-space:pre"></pre>
+  <div class="dialog-actions">
+    <button type="button" id="manifest-copy">Copy</button>
+    <button type="button" id="manifest-close" class="primary">Close</button>
   </div>
 </dialog>
 

@@ -43,5 +43,7 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 20 | "New app" wizard — deploy from an explained form, no YAML ✅ |
 | 21 | Operate from the GUI — scale, logs, edit (rolling), delete, share on a port ✅ |
 | 22 | Windows packaging — installable/portable desktop app ✅ |
+| 23 | Fix: dialogs centered (CSS reset clobbered `<dialog>` margin:auto) ✅ |
+| 24 | Easy / Developer mode toggle — plain language vs full Docker/k8s control ✅ |
 
 Further ideas live at the end of [docs/commits/commit_18.md](docs/commits/commit_18.md).

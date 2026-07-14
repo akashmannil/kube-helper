@@ -35,6 +35,11 @@ deploy from a wizard instead of YAML, scale with +/− buttons, view logs, edit 
 updates, share an app behind one load-balanced address, all with plain-language help
 ("copies" instead of replicas, "app package" instead of image).
 
+A header **Easy / Developer** toggle switches between that plain-language experience and full
+Docker/Kubernetes terminology with every advanced option (custom command, port protocol,
+volume type, health-probe tuning, restart policy) plus a one-click **Manifest** view showing
+the exact `khapp.yaml` to deploy the same thing from the CLI.
+
 ```sh
 npm run gui         # develop: opens the desktop window
 npm run dist        # ship:   → release/kube-helper 0.1.0.exe (portable Windows app)

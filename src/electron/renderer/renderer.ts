@@ -1,8 +1,15 @@
 /**
  * The desktop UI. Runs sandboxed: everything it knows about Docker arrives
- * through the `window.kh` bridge (see ../preload.ts), and all wording is
- * aimed at people who have never used Docker or Kubernetes.
+ * through the `window.kh` bridge (see ../preload.ts). Two modes:
+ *   - "easy" (default): plain language, advanced options hidden.
+ *   - "dev": real Docker/Kubernetes terms and every option exposed.
+ * Static markup carries both wordings (.easy-only/.dev-only, toggled by CSS on
+ * body[data-mode]); this file switches the mode and re-renders dynamic cards.
  */
+
+type Mode = "easy" | "dev";
+let mode: Mode = localStorage.getItem("kh-mode") === "dev" ? "dev" : "easy";
+const isDev = (): boolean => mode === "dev";
 
 interface ReplicaView {
   name: string;
@@ -75,11 +82,15 @@ function stateClass(r: ReplicaView): string {
   return r.state === "running" ? "s-warn" : "s-down";
 }
 
-/** Plain-language line for an app's health, e.g. "2 of 2 copies running". */
+/** Health line, worded for the current mode. */
 function readyLabel(a: AppView): string {
+  if (isDev()) return `${a.ready}/${a.desired} ready`;
   if (a.desired === 0) return "paused (0 copies)";
   return `${a.ready} of ${a.desired} ${a.desired === 1 ? "copy" : "copies"} running`;
 }
+
+/** Word for one replica, per mode. */
+const unit = (plural: boolean): string => (isDev() ? (plural ? "replicas" : "replica") : plural ? "copies" : "copy");
 
 /** Apps by name from the last refresh (edit/scale read from here). */
 let lastApps: AppView[] = [];
@@ -106,11 +117,12 @@ function renderApps(apps: AppView[]): void {
           )
           .join(" ")}
         <span class="actions" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-          <button data-action="scale-down" data-app="${esc(a.name)}" title="Run one fewer copy" ${a.desired <= 0 ? "disabled" : ""}>−</button>
-          <button data-action="scale-up" data-app="${esc(a.name)}" title="Run one more copy — added with no downtime" ${a.desired >= 100 ? "disabled" : ""}>+</button>
+          <button data-action="scale-down" data-app="${esc(a.name)}" title="Run one fewer ${unit(false)}" ${a.desired <= 0 ? "disabled" : ""}>−</button>
+          <button data-action="scale-up" data-app="${esc(a.name)}" title="Run one more ${unit(false)} — added with no downtime" ${a.desired >= 100 ? "disabled" : ""}>+</button>
           <button data-action="logs" data-app="${esc(a.name)}" title="See what the app prints — first place to look when something misbehaves">Logs</button>
-          <button data-action="edit" data-app="${esc(a.name)}" title="Change the package, settings or ports — changes roll out one copy at a time">Edit</button>
-          <button data-action="share" data-app="${esc(a.name)}" title="One stable address that spreads visitors across all copies">Share…</button>
+          <button data-action="edit" data-app="${esc(a.name)}" title="Change the ${isDev() ? "spec" : "package, settings or ports"} — rolling update, one ${unit(false)} at a time">Edit</button>
+          <button data-action="manifest" data-app="${esc(a.name)}" class="dev-only" title="View the kh/v1 manifest and the CLI to deploy it">Manifest</button>
+          <button data-action="share" data-app="${esc(a.name)}" title="One stable address that load-balances across all ${unit(true)}">Share…</button>
           <button data-action="delete" data-app="${esc(a.name)}" class="danger">${
             Date.now() - (deleteArmedAt.get(a.name) ?? 0) < DELETE_ARM_MS ? "Sure? click again" : "Delete"
           }</button>
@@ -120,8 +132,8 @@ function renderApps(apps: AppView[]): void {
         a.replicas.length
           ? `<table>
         <tr>
-          <th title="Each copy of the app runs separately; if one crashes the others keep serving">copy</th>
-          <th>state</th><th>details</th><th>reachable at</th>
+          <th title="Each ${unit(false)} runs separately; if one crashes the others keep serving">${isDev() ? "replica" : "copy"}</th>
+          <th>state</th><th>${isDev() ? "status" : "details"}</th><th>${isDev() ? "ports" : "reachable at"}</th>
         </tr>
         ${a.replicas
           .map(
@@ -135,7 +147,7 @@ function renderApps(apps: AppView[]): void {
           )
           .join("")}
       </table>`
-          : `<p class="hint" style="margin-top:8px">Paused — no copies are running right now.</p>`
+          : `<p class="hint" style="margin-top:8px">${isDev() ? "Scaled to 0 replicas." : "Paused — no copies are running right now."}</p>`
       }
     </section>`
     )
@@ -189,6 +201,14 @@ async function onAction(btn: HTMLButtonElement): Promise<void> {
       return;
     case "share":
       openShare(view);
+      return;
+    case "manifest":
+      openManifest(view.name, {
+        apiVersion: "kh/v1",
+        kind: "App",
+        metadata: { name: view.name },
+        spec: view.spec ?? { image: view.image, replicas: view.desired },
+      });
       return;
   }
 }
@@ -257,7 +277,25 @@ function showFormError(msg: string): void {
  * commands or probes) is carried over untouched from the deployed spec, so a
  * GUI edit can never silently strip a CLI-made configuration.
  */
-let editing: { name: string; base: SpecView; dataVolName: string } | null = null;
+let editing: { name: string; base: SpecView } | null = null;
+
+const val = (id: string): string => ($(id) as HTMLInputElement | HTMLSelectElement).value;
+const setVal = (id: string, v: string): void => {
+  ($(id) as HTMLInputElement | HTMLSelectElement).value = v;
+};
+const checked = (id: string): boolean => ($(id) as HTMLInputElement).checked;
+const setChecked = (id: string, v: boolean): void => {
+  ($(id) as HTMLInputElement).checked = v;
+};
+
+/** Split a shell-style command string into argv, respecting single/double quotes. */
+function parseArgv(input: string): string[] {
+  const out: string[] = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(input)) !== null) out.push(m[1] ?? m[2] ?? m[3] ?? "");
+  return out;
+}
 
 function openNewApp(): void {
   editing = null;
@@ -265,15 +303,26 @@ function openNewApp(): void {
   ($("f-name") as HTMLInputElement).disabled = false;
   $("new-app-submit").textContent = "Deploy";
   ($("form-error") as HTMLElement).style.display = "none";
-  ($("f-name") as HTMLInputElement).value = "";
-  ($("f-image") as HTMLInputElement).value = "";
-  ($("f-replicas") as HTMLInputElement).value = "1";
-  ($("f-web") as HTMLInputElement).checked = true;
-  ($("f-hport") as HTMLInputElement).value = "8080";
-  ($("f-cport") as HTMLInputElement).value = "80";
-  ($("f-data") as HTMLInputElement).checked = false;
-  ($("f-mount") as HTMLInputElement).value = "/data";
-  ($("f-health") as HTMLInputElement).checked = false;
+  setVal("f-name", "");
+  setVal("f-image", "");
+  setVal("f-replicas", "1");
+  setVal("f-command", "");
+  setChecked("f-web", true);
+  setVal("f-hport", "8080");
+  setVal("f-cport", "80");
+  setVal("f-proto", "tcp");
+  setChecked("f-data", false);
+  setVal("f-voltype", "managed");
+  setVal("f-volhost", "");
+  setVal("f-mount", "/data");
+  setChecked("f-volro", false);
+  setChecked("f-health", false);
+  setVal("f-hcmode", "auto");
+  setVal("f-hcshell", "");
+  setVal("f-hcinterval", "5");
+  setVal("f-hcstart", "5");
+  setVal("f-hcretries", "3");
+  setVal("f-restart", "always");
   $("env-rows").innerHTML = "";
   syncSubfields();
   dialog.showModal();
@@ -281,8 +330,7 @@ function openNewApp(): void {
 
 function openEdit(view: AppView): void {
   const base = (view.spec ?? { image: view.image, replicas: view.desired }) as SpecView;
-  const dataVol = (base.volumes ?? []).find((v) => v.name !== undefined);
-  editing = { name: view.name, base, dataVolName: dataVol?.name ?? "data" };
+  editing = { name: view.name, base };
 
   $("dialog-title").textContent = `Edit ${view.name}`;
   $("new-app-submit").textContent = "Apply changes";
@@ -290,15 +338,32 @@ function openEdit(view: AppView): void {
   const nameInput = $("f-name") as HTMLInputElement;
   nameInput.value = view.name;
   nameInput.disabled = true;
-  ($("f-image") as HTMLInputElement).value = base.image;
-  ($("f-replicas") as HTMLInputElement).value = String(base.replicas ?? view.desired);
+  setVal("f-image", base.image);
+  setVal("f-replicas", String(base.replicas ?? view.desired));
+  setVal("f-command", (base.command ?? []).join(" "));
+
   const firstPort = base.ports?.[0];
-  ($("f-web") as HTMLInputElement).checked = firstPort !== undefined;
-  ($("f-hport") as HTMLInputElement).value = String(firstPort?.host ?? 8080);
-  ($("f-cport") as HTMLInputElement).value = String(firstPort?.container ?? 80);
-  ($("f-data") as HTMLInputElement).checked = dataVol !== undefined;
-  ($("f-mount") as HTMLInputElement).value = dataVol?.mount ?? "/data";
-  ($("f-health") as HTMLInputElement).checked = base.healthcheck !== undefined;
+  setChecked("f-web", firstPort !== undefined);
+  setVal("f-hport", String(firstPort?.host ?? 8080));
+  setVal("f-cport", String(firstPort?.container ?? 80));
+  setVal("f-proto", firstPort?.protocol ?? "tcp");
+
+  const vol = base.volumes?.[0];
+  setChecked("f-data", vol !== undefined);
+  setVal("f-voltype", vol?.host !== undefined ? "bind" : "managed");
+  setVal("f-volhost", vol?.host ?? "");
+  setVal("f-mount", vol?.mount ?? "/data");
+  setChecked("f-volro", vol?.readOnly ?? false);
+
+  const hc = base.healthcheck as { shell?: string; intervalSeconds?: number; startPeriodSeconds?: number; retries?: number } | undefined;
+  setChecked("f-health", hc !== undefined);
+  setVal("f-hcmode", hc?.shell !== undefined ? "shell" : "auto");
+  setVal("f-hcshell", hc?.shell ?? "");
+  setVal("f-hcinterval", String(hc?.intervalSeconds ?? 5));
+  setVal("f-hcstart", String(hc?.startPeriodSeconds ?? 5));
+  setVal("f-hcretries", String(hc?.retries ?? 3));
+  setVal("f-restart", base.restart ?? "always");
+
   $("env-rows").innerHTML = "";
   for (const [key, value] of Object.entries(base.env ?? {})) addEnvRow(key, value);
   syncSubfields();
@@ -306,20 +371,30 @@ function openEdit(view: AppView): void {
 }
 
 function syncSubfields(): void {
-  $("web-fields").style.display = ($("f-web") as HTMLInputElement).checked ? "block" : "none";
-  $("data-fields").style.display = ($("f-data") as HTMLInputElement).checked ? "block" : "none";
+  $("web-fields").style.display = checked("f-web") ? "block" : "none";
+  $("data-fields").style.display = checked("f-data") ? "block" : "none";
+  $("health-fields").style.display = checked("f-health") ? "block" : "none";
+  $("bind-host-field").style.display = val("f-voltype") === "bind" ? "block" : "none";
+  $("hc-shell-field").style.display = val("f-hcmode") === "shell" ? "block" : "none";
 }
 
-/** Translate the form into a kh manifest; the main process re-validates with zod. */
+/**
+ * Translate the form into a kh manifest; the main process re-validates with
+ * the same zod schema as `kh validate`. Advanced fields are read only in
+ * Developer mode — in Easy mode they keep the deployed spec's values (on edit)
+ * or the schema defaults (on new), so Easy mode hides options without wiping
+ * anything a Developer-mode or CLI user configured.
+ */
 function manifestFromForm(): unknown {
-  const name = editing?.name ?? ($("f-name") as HTMLInputElement).value.trim();
-  const image = ($("f-image") as HTMLInputElement).value.trim();
-  const replicas = Number(($("f-replicas") as HTMLInputElement).value);
-  const web = ($("f-web") as HTMLInputElement).checked;
-  const cport = Number(($("f-cport") as HTMLInputElement).value);
-  const hport = Number(($("f-hport") as HTMLInputElement).value);
-  const keepData = ($("f-data") as HTMLInputElement).checked;
-  const health = ($("f-health") as HTMLInputElement).checked;
+  const dev = isDev();
+  const name = editing?.name ?? val("f-name").trim();
+  const image = val("f-image").trim();
+  const replicas = Number(val("f-replicas"));
+  const web = checked("f-web");
+  const cport = Number(val("f-cport"));
+  const hport = Number(val("f-hport"));
+  const keepData = checked("f-data");
+  const health = checked("f-health");
 
   const env: Record<string, string> = {};
   for (const row of document.querySelectorAll<HTMLElement>(".env-row")) {
@@ -332,26 +407,54 @@ function manifestFromForm(): unknown {
   const base: SpecView | undefined = editing ? structuredClone(editing.base) : undefined;
   const spec: Record<string, unknown> = { ...(base ?? {}), image, replicas, env };
 
-  const restPorts = (base?.ports ?? []).slice(1);
-  if (web) spec.ports = [{ container: cport, host: hport }, ...restPorts];
-  else spec.ports = [];
+  if (dev) {
+    const argv = parseArgv(val("f-command").trim());
+    if (argv.length) spec.command = argv;
+    else delete spec.command;
+  }
 
-  const dataVolName = editing?.dataVolName ?? "data";
-  const otherVolumes = (base?.volumes ?? []).filter((v) => v.name !== dataVolName);
-  spec.volumes = keepData
-    ? [...otherVolumes, { name: dataVolName, mount: ($("f-mount") as HTMLInputElement).value.trim() }]
-    : otherVolumes;
+  const proto = dev ? val("f-proto") : base?.ports?.[0]?.protocol ?? "tcp";
+  const restPorts = (base?.ports ?? []).slice(1);
+  spec.ports = web ? [{ container: cport, host: hport, protocol: proto }, ...restPorts] : [];
+
+  const restVolumes = (base?.volumes ?? []).slice(1);
+  if (keepData) {
+    const mount = val("f-mount").trim();
+    const type = dev ? val("f-voltype") : base?.volumes?.[0]?.host !== undefined ? "bind" : "managed";
+    const readOnly = dev ? checked("f-volro") : base?.volumes?.[0]?.readOnly ?? false;
+    const first =
+      type === "bind"
+        ? { host: val("f-volhost").trim(), mount, readOnly }
+        : { name: base?.volumes?.[0]?.name ?? "data", mount, readOnly };
+    spec.volumes = [first, ...restVolumes];
+  } else {
+    spec.volumes = restVolumes;
+  }
 
   if (health) {
-    // Keep an existing custom probe; only synthesize one when there is none.
-    spec.healthcheck = base?.healthcheck ?? {
-      exec: ["wget", "-qO-", `http://127.0.0.1:${web ? cport : 80}/`],
-      intervalSeconds: 5,
-      startPeriodSeconds: 5,
-    };
+    if (dev) {
+      const common = {
+        intervalSeconds: Number(val("f-hcinterval")),
+        startPeriodSeconds: Number(val("f-hcstart")),
+        retries: Number(val("f-hcretries")),
+      };
+      spec.healthcheck =
+        val("f-hcmode") === "shell"
+          ? { shell: val("f-hcshell"), ...common }
+          : { exec: ["wget", "-qO-", `http://127.0.0.1:${web ? cport : 80}/`], ...common };
+    } else {
+      // Keep an existing custom probe; only synthesize one when there is none.
+      spec.healthcheck = base?.healthcheck ?? {
+        exec: ["wget", "-qO-", `http://127.0.0.1:${web ? cport : 80}/`],
+        intervalSeconds: 5,
+        startPeriodSeconds: 5,
+      };
+    }
   } else {
     delete spec.healthcheck;
   }
+
+  if (dev) spec.restart = val("f-restart");
 
   return { apiVersion: "kh/v1", kind: "App", metadata: { name }, spec };
 }
@@ -460,6 +563,94 @@ async function submitShare(): Promise<void> {
 $("share-cancel").addEventListener("click", () => shareDialog.close());
 $("share-submit").addEventListener("click", () => void submitShare());
 
+// ---------- Manifest preview (developer mode) ----------
+
+const manifestDialog = $("manifest-dialog") as unknown as HTMLDialogElement;
+
+/** Minimal YAML for a plain object/array/scalar tree — enough for kh manifests. */
+function toYaml(value: unknown, indent = 0): string {
+  const pad = "  ".repeat(indent);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return " []\n";
+    return (
+      "\n" +
+      value
+        .map((item) => {
+          if (item !== null && typeof item === "object") {
+            // "- " then the object's fields, first inline with the dash.
+            const body = toYaml(item, indent + 1).replace(/^\s*\n/, "");
+            const lines = body.split("\n").filter((l) => l.length);
+            return `${pad}- ${lines[0]?.trim() ?? ""}\n${lines.slice(1).map((l) => `${pad}  ${l.trim()}`).join("\n")}`.replace(/\n$/, "");
+          }
+          return `${pad}- ${scalar(item)}`;
+        })
+        .join("\n") +
+      "\n"
+    );
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return " {}\n";
+    return (
+      (indent ? "\n" : "") +
+      entries
+        .map(([k, v]) => {
+          if (v !== null && typeof v === "object") return `${pad}${k}:${toYaml(v, indent + 1).replace(/\n$/, "")}`;
+          return `${pad}${k}: ${scalar(v)}`;
+        })
+        .join("\n") +
+      "\n"
+    );
+  }
+  return `${scalar(value)}\n`;
+}
+function scalar(v: unknown): string {
+  if (typeof v === "string" && (v === "" || /[:#{}\[\],&*?|<>=!%@`"']/.test(v) || /^\s|\s$/.test(v))) {
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
+function openManifest(name: string, manifest: unknown): void {
+  $("manifest-title").textContent = `Manifest — ${name}`;
+  $("manifest-pre").textContent = toYaml(manifest).trimEnd();
+  manifestDialog.showModal();
+}
+
+$("manifest-close").addEventListener("click", () => manifestDialog.close());
+$("manifest-copy").addEventListener("click", () => {
+  void navigator.clipboard.writeText($("manifest-pre").textContent ?? "");
+  const btn = $("manifest-copy");
+  btn.textContent = "Copied";
+  setTimeout(() => (btn.textContent = "Copy"), 1500);
+});
+$("btn-preview").addEventListener("click", () => {
+  try {
+    openManifest(editing?.name ?? (val("f-name").trim() || "app"), manifestFromForm());
+  } catch (err) {
+    showFormError(String(err));
+  }
+});
+
+// ---------- Easy / Developer mode ----------
+
+function applyMode(): void {
+  document.body.dataset.mode = mode;
+  for (const btn of document.querySelectorAll<HTMLButtonElement>("#mode-toggle button")) {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  }
+  // Re-render cards so their dynamic wording follows the mode immediately.
+  renderApps(lastApps);
+}
+
+for (const btn of document.querySelectorAll<HTMLButtonElement>("#mode-toggle button")) {
+  btn.addEventListener("click", () => {
+    mode = btn.dataset.mode === "dev" ? "dev" : "easy";
+    localStorage.setItem("kh-mode", mode);
+    applyMode();
+  });
+}
+
 $("btn-new").addEventListener("click", openNewApp);
 $("btn-sample").addEventListener("click", () => void deploySample());
 $("new-app-cancel").addEventListener("click", () => dialog.close());
@@ -467,8 +658,12 @@ $("new-app-submit").addEventListener("click", () => void submitNewApp());
 $("btn-add-env").addEventListener("click", () => addEnvRow());
 $("f-web").addEventListener("change", syncSubfields);
 $("f-data").addEventListener("change", syncSubfields);
+$("f-voltype").addEventListener("change", syncSubfields);
+$("f-hcmode").addEventListener("change", syncSubfields);
+$("f-health").addEventListener("change", syncSubfields);
 $("retry-docker").addEventListener("click", () => void tick());
 
+applyMode();
 void tick();
 setInterval(() => void tick(), 2500);
 
