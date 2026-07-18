@@ -47,5 +47,6 @@ One functionality per commit. Every commit `N` is documented in `docs/commits/co
 | 24 | Easy / Developer mode toggle — plain language vs full Docker/k8s control ✅ |
 | 25 | Detached windows — each app + Logs/Edit/Share/Manifest as its own OS window ✅ |
 | 26 | The app explains itself — first-open welcome + "How it works" help window ✅ |
+| 27 | v0.1.0 GitHub Release — downloadable desktop + CLI exes, README download links ✅ |
 
 Further ideas live at the end of [docs/commits/commit_18.md](docs/commits/commit_18.md).

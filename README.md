@@ -14,6 +14,20 @@ Cloud costs keep pushing developers and small teams back to local infrastructure
 there is not compute — it's orchestration ergonomics. `kh` is that missing layer for a single
 device or server.
 
+## Download — try it without building anything (Windows)
+
+Grab a binary from the [latest release](https://github.com/akashmannil/kube-helper/releases/latest):
+
+- **[kube-helper-0.1.0-windows.exe](https://github.com/akashmannil/kube-helper/releases/download/v0.1.0/kube-helper-0.1.0-windows.exe)**
+  — the desktop app. Double-click, no install: it opens with a guided welcome, one click runs a
+  sample website, and the header **?** explains how everything works.
+- **[kh-0.1.0-windows-cli.exe](https://github.com/akashmannil/kube-helper/releases/download/v0.1.0/kh-0.1.0-windows-cli.exe)**
+  — the `kh` CLI as one file, no Node.js needed. Rename to `kh.exe`, put it on your PATH.
+
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed — kube-helper
+drives Docker, and says so politely if it isn't running. The exes are unsigned, so SmartScreen
+will ask once: **More info → Run anyway**.
+
 ## Quick start
 
 ```sh
