@@ -47,7 +47,6 @@
   button.danger:hover { border-color: var(--red); color: var(--red); }
   button:disabled { opacity: .4; cursor: wait; }
 
-  #empty { color: var(--dim); text-align: center; padding: 36px 12px; }
   #error-banner { display: none; background: #7f1d1d; color: #fecaca; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px; }
   a.local-link { color: var(--accent); text-decoration: none; }
   a.local-link:hover { text-decoration: underline; }
@@ -86,6 +85,31 @@
     border-radius: 7px; padding: 6px 10px; font: inherit; }
   select:focus { outline: none; border-color: var(--accent); }
 
+  /* First-open welcome (fills the empty state) and the Help window. The welcome
+     teaches with the app's own parts — a dashed "ghost" of the card every app
+     becomes — rather than a text wall. */
+  #empty { max-width: 880px; margin: 4px auto; }
+  .hero h2 { font-size: 17px; }
+  .steps { display: flex; gap: 12px; margin: 14px 0 2px; flex-wrap: wrap; }
+  .step { flex: 1 1 200px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .step h3 { font-size: 13.5px; margin: 4px 0; }
+  .step-num { color: var(--accent); font-size: 17px; font-weight: 700; }
+  .ghost-card { background: var(--panel-2); border-style: dashed; margin: 14px 0 0; }
+  .ghost-card * { pointer-events: none; }
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 8px; }
+  #btn-help { border-radius: 999px; padding: 4px 11px; font-weight: 700; }
+
+  #help-dialog { width: min(720px, 94vw); }
+  .help-section { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+  .help-section h3 { font-size: 14px; margin-bottom: 6px; }
+  .help-section p { margin-bottom: 6px; }
+  .loop { display: flex; align-items: stretch; margin: 10px 0 0; flex-wrap: wrap; }
+  .loop-box { flex: 1 1 200px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .loop-arrow { align-self: center; color: var(--accent); padding: 0 12px; font-size: 16px; }
+  .loop-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .loop-return { border: 1px solid var(--line); border-top: none; border-radius: 0 0 10px 10px;
+    margin: 0 36px; padding: 8px 12px; text-align: center; color: var(--dim); font-size: 12.5px; }
+
   /* Detached windows (opened via window:open). A "panel" window hosts a single
      dialog filling the whole window; a "solo" window shows one app's card. */
   body.secondary .overview-only { display: none !important; }
@@ -105,6 +129,7 @@
       <button data-mode="easy" class="active">Easy</button>
       <button data-mode="dev">Developer</button>
     </span>
+    <button id="btn-help" title="How kube-helper works — a short guide, in both of the app's languages">?</button>
     <button id="btn-sample" title="Deploys a small demo website so you can see how this works">Run sample app</button>
     <button id="btn-new" class="primary">＋ New app</button>
   </span>
@@ -126,9 +151,81 @@
 
 <main id="apps"></main>
 <div id="empty" class="overview-only" style="display:none">
-  <p>No apps yet.</p>
-  <p class="hint">An "app" is anything you want this computer to run — a website, a database, an API.<br>
-  Click <b>Run sample app</b> to see one working in seconds, or <b>＋ New app</b> to set up your own.</p>
+  <section class="card hero">
+    <h2>
+      <span class="easy-only">Nothing is running yet — here's the whole idea.</span>
+      <span class="dev-only">No apps yet — the model in twenty seconds.</span>
+    </h2>
+    <p class="hint">
+      <span class="easy-only">An "app" is anything you want this computer to run — a website, a database, an API.
+      kube-helper's job is to start it, and then to <b>keep</b> it running: through crashes, updates and restarts.</span>
+      <span class="dev-only">Declarative apps on the plain Docker Engine — replicas, reconciliation, rolling updates,
+      self-healing. State lives in container labels, so <span class="mono">docker ps</span> stays the truth.</span>
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num mono">1</div>
+        <h3><span class="easy-only">Pick an app package</span><span class="dev-only">Declare the app</span></h3>
+        <p class="hint">
+          <span class="easy-only">The app, ready-made — <span class="mono">nginx</span> is a web server,
+          <span class="mono">postgres</span> a database, and Docker Hub has thousands more. Nothing to install:
+          it downloads itself the first time.</span>
+          <span class="dev-only">Name, <span class="mono">image</span>, replicas, ports, env, volumes, probes —
+          from the wizard or a <span class="mono">kh/v1</span> manifest. Both build the same object and pass the
+          same schema.</span>
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-num mono">2</div>
+        <h3><span class="easy-only">kube-helper runs copies</span><span class="dev-only">The engine reconciles</span></h3>
+        <p class="hint">
+          <span class="easy-only">Each copy lives in its own sealed box, walled off from the rest of this
+          computer. With two copies, the app survives one of them dying.</span>
+          <span class="dev-only">Replicas become containers <span class="mono">kh-&lt;name&gt;-&lt;i&gt;</span>;
+          only the diff between desired and observed is touched, so an apply never restarts what's already right.</span>
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-num mono">3</div>
+        <h3><span class="easy-only">…and it stays running</span><span class="dev-only">…and stays converged</span></h3>
+        <p class="hint">
+          <span class="easy-only">A crashed copy comes straight back. Updates replace copies one at a time, so
+          there's no downtime. You open the result at <span class="mono">localhost</span> in your browser.</span>
+          <span class="dev-only"><span class="mono">restart: always</span> for crashes, health-gated readiness,
+          rolling updates on spec change, <span class="mono">kh watch</span> for replicas that vanish —
+          and <span class="mono">expose</span> for one load-balanced address.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="ghost-card card" aria-hidden="true">
+      <div class="app-head">
+        <span class="app-name">my-blog</span>
+        <span class="badge ok"><span class="easy-only">2 of 2 copies running</span><span class="dev-only">2/2 ready</span></span>
+        <span class="meta mono">ghost:5-alpine</span>
+        <a class="local-link mono">localhost:8080</a>
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <button tabindex="-1">⧉ Open</button><button tabindex="-1">−</button><button tabindex="-1">+</button>
+          <button tabindex="-1">Logs ⧉</button><button tabindex="-1">Edit ⧉</button>
+        </span>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:6px">Every app you deploy becomes a live card like this, right here —
+    and the − / + buttons really do remove and add running copies.</p>
+
+    <div class="hero-actions">
+      <button id="hero-sample" class="primary">Run the sample app</button>
+      <button id="hero-new">＋ New app</button>
+      <button id="hero-help">How it all works →</button>
+    </div>
+    <p class="hint">
+      <span class="easy-only">The sample is a real, tiny website — two copies of <span class="mono">nginx</span>.
+      It appears here in seconds, and deleting it later is one click.</span>
+      <span class="dev-only">The sample is <span class="mono">nginx:alpine</span> ×2 on the first free port
+      from 8090 — then try scale ±, Logs, and a rolling Edit.</span>
+    </p>
+  </section>
 </div>
 
 <dialog id="new-app">
@@ -329,6 +426,154 @@
   <div class="dialog-actions">
     <button type="button" id="manifest-copy">Copy</button>
     <button type="button" id="manifest-close" class="primary">Close</button>
+  </div>
+</dialog>
+
+<dialog id="help-dialog">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:2px">
+    <h2>How kube-helper works</h2>
+    <span class="mode-toggle" style="margin-left:auto" title="The same switch as the main window — plain language, or the real terms">
+      <button data-mode="easy" class="active">Easy</button>
+      <button data-mode="dev">Developer</button>
+    </span>
+  </div>
+  <p class="hint">This page speaks both of the app's languages. Flip the switch above and every sentence
+  rewrites itself — nothing else changes, which is the point.</p>
+
+  <div class="help-section">
+    <h3>What this actually is</h3>
+    <p class="hint">
+      <span class="easy-only">Docker can run almost any app — websites, databases, APIs — each in its own
+      sealed box, so nothing an app does can tangle with the rest of this computer. But Docker on its own
+      does exactly what it's told, exactly once: if the app crashes at 2 a.m., it stays crashed.</span>
+      <span class="dev-only">Single-machine orchestration on the plain Docker Engine API. An app is a
+      <span class="mono">kh/v1</span> manifest — built by this GUI's wizard or written by hand; both pass the
+      same zod schema and the same reconciler.</span>
+    </p>
+    <p class="hint">
+      <span class="easy-only">kube-helper is the layer that takes responsibility. You describe what should be
+      running; it makes that true, then keeps it true — through crashes, updates and scale changes. The ideas
+      are borrowed from Kubernetes, the system datacentres use, minus everything that needs a team to babysit.</span>
+      <span class="dev-only">There is no control plane, no etcd, no database of any kind: every byte of kh
+      state rides on container labels, so <span class="mono">docker ps</span> never disagrees with
+      <span class="mono">kh status</span>, and deleting the containers deletes the state.</span>
+    </p>
+  </div>
+
+  <div class="help-section">
+    <h3>The loop that does all the work</h3>
+    <p class="hint">
+      <span class="easy-only">Everything this app does — deploying, scaling, updating, healing — is one trick, repeated:</span>
+      <span class="dev-only">Every feature is the same reconcile primitive:</span>
+    </p>
+    <div class="loop">
+      <div class="loop-box">
+        <div class="loop-title"><span class="easy-only">What you asked for</span><span class="dev-only">Desired state</span></div>
+        <div class="hint mono">my-blog · 2 <span class="easy-only">copies</span><span class="dev-only">replicas</span><br>nginx:alpine · port 8080</div>
+      </div>
+      <div class="loop-arrow">▶</div>
+      <div class="loop-box">
+        <div class="loop-title"><span class="easy-only">What is actually running</span><span class="dev-only">Observed state</span></div>
+        <div class="hint mono"><span class="easy-only">copy</span><span class="dev-only">replica</span> 0 <span class="s-ready">running</span><br><span class="easy-only">copy</span><span class="dev-only">replica</span> 1 <span class="s-down">crashed</span></div>
+      </div>
+    </div>
+    <div class="loop-return">↻&nbsp;
+      <span class="easy-only">kube-helper compares the two and fixes the difference — here, it would bring copy 1 back</span>
+      <span class="dev-only">diff desired against observed, converge only the difference — here, re-create replica 1</span>
+    </div>
+    <p class="hint" style="margin-top:10px">
+      <span class="easy-only">Deploying is "the difference is the whole app". Scaling is "the difference is
+      one copy". An update is "the difference is the version" — copies are replaced one at a time, so the app
+      never goes down. And a crash is just a difference too, so it gets fixed like one.</span>
+      <span class="dev-only">Apply, scale, edit and crash-recovery are all this diff-and-converge: per-index,
+      so untouched replicas never restart; image changes roll one index at a time;
+      <span class="mono">restart: always</span> plus <span class="mono">kh watch</span> close the loop between runs.</span>
+    </p>
+  </div>
+
+  <div class="help-section">
+    <h3>Two languages, one dictionary</h3>
+    <p class="hint">Easy mode and Developer mode are the same app with the words changed. This is the dictionary:</p>
+    <table>
+      <tr><th>easy mode says</th><th>developer mode says</th><th>meaning</th></tr>
+      <tr><td><b>copy</b></td><td class="mono">replica</td>
+        <td class="hint">One running instance of the app — a container named <span class="mono">kh-&lt;app&gt;-&lt;i&gt;</span>.
+        More copies: survives crashes, updates without downtime.</td></tr>
+      <tr><td><b>app package</b></td><td class="mono">image</td>
+        <td class="hint">The app frozen into one downloadable bundle, fetched from Docker Hub (or any registry) on first use.</td></tr>
+      <tr><td><b>settings</b></td><td class="mono">env</td>
+        <td class="hint"><span class="mono">KEY = value</span> pairs handed to every copy at start — how a database learns its password.</td></tr>
+      <tr><td><b>keep this app's data</b></td><td class="mono">volume</td>
+        <td class="hint">A folder that outlives restarts, updates, crashes — even Delete. Only the CLI's
+        <span class="mono">kh delete --volumes</span> destroys data.</td></tr>
+      <tr><td><b>reachable in your browser</b></td><td class="mono">published port</td>
+        <td class="hint">Connects <span class="mono">localhost:&lt;port&gt;</span> to the port the app listens on inside;
+        copy <span class="mono">i</span> gets <span class="mono">port+i</span>, so copies never collide.</td></tr>
+      <tr><td><b>auto health check</b></td><td class="mono">health probe</td>
+        <td class="hint">kube-helper pings the app every few seconds; a copy that stops answering is marked
+        unhealthy instead of quietly serving nothing.</td></tr>
+      <tr><td><b>share on one address</b></td><td class="mono">expose (LB)</td>
+        <td class="hint">One stable localhost port that spreads visitors across all copies — new copies join by
+        themselves when you scale.</td></tr>
+      <tr><td><b>paused</b></td><td class="mono">scaled to 0</td>
+        <td class="hint">The app is remembered, but no copies run. The <b>+</b> button wakes it.</td></tr>
+    </table>
+  </div>
+
+  <div class="help-section">
+    <h3>The buttons, quickly</h3>
+    <table>
+      <tr><td><b>⧉ Open</b></td><td class="hint">The app in its own live window. The ⧉ mark always means
+        "opens as a real window you can move, resize, and keep around".</td></tr>
+      <tr><td><b>− / +</b></td><td class="hint">One copy fewer / one more, applied while the app serves — the badge follows along.</td></tr>
+      <tr><td><b>Logs ⧉</b></td><td class="hint">What the app prints — the first place to look when something
+        misbehaves. Open several, side by side.</td></tr>
+      <tr><td><b>Edit ⧉</b></td><td class="hint">Change anything about the app; applied as a rolling update, one copy at a time.</td></tr>
+      <tr><td><b>Share… ⧉</b></td><td class="hint">One stable localhost address that load-balances across every copy.</td></tr>
+      <tr><td><b>Manifest ⧉</b></td><td class="hint">Developer mode only: the exact file that recreates this app from a terminal.</td></tr>
+      <tr><td><b>Delete</b></td><td class="hint">Asks you to click twice, then removes the app's copies. Data marked "keep" survives.</td></tr>
+    </table>
+  </div>
+
+  <div class="help-section">
+    <h3>The window and the terminal are the same tool</h3>
+    <p class="hint">
+      <span class="easy-only">Everything this window does, a terminal command called <span class="mono">kh</span>
+      does too — same engine underneath, identical results. You never have to touch it; but if a developer
+      hands you commands, they'll work on the very apps you made here.</span>
+      <span class="dev-only">The GUI calls the same functions the CLI binds — form → manifest → schema →
+      reconciler. Developer mode adds <b>Manifest ⧉</b> to every card: the exact YAML that recreates the app
+      via <span class="mono">kh apply -f app.yaml</span>.</span>
+    </p>
+    <pre class="mono dev-only" style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.7">kh doctor    is this machine ready?
+kh apply     make reality match the file
+kh status    what's running
+kh scale     more or fewer replicas
+kh logs -f   live logs, every replica prefixed
+kh watch     the self-healing patrol
+kh expose    one load-balanced address
+kh delete    clean teardown</pre>
+  </div>
+
+  <div class="help-section">
+    <h3>When something misbehaves</h3>
+    <p class="hint"><b>"Docker: not running" in the header</b> — Docker Desktop isn't started. Open it, wait for
+    "Engine running", press Retry. kube-helper can't run anything without it.</p>
+    <p class="hint"><b>"port is already allocated"</b> — another program (or another app here) owns that
+    localhost port. Pick a nearby one — 8081, 8090, 3000…</p>
+    <p class="hint"><b>Deploying hangs the first time</b> — it's downloading the app package. Only the first
+    deploy of each package pays this; after that it's seconds.</p>
+    <p class="hint"><b>An app keeps restarting</b> — open <b>Logs ⧉</b> and read the red lines: that's the app
+    itself telling you what's missing. Databases usually want a password setting
+    (e.g. <span class="mono">POSTGRES_PASSWORD</span>).</p>
+    <p class="hint"><b>A copy shows "unhealthy"</b> — it's running but not answering its health check: wedged
+    or overloaded. The terminal's <span class="mono">kh watch</span> re-creates such copies automatically.</p>
+    <p class="hint" style="margin-top:10px">And when in doubt: nothing here is precious. Delete the app and
+    deploy it again — it takes seconds, and kept data survives.</p>
+  </div>
+
+  <div class="dialog-actions">
+    <button type="button" id="help-close" class="primary">Close</button>
   </div>
 </dialog>
 

@@ -513,8 +513,9 @@ async function submitNewApp(): Promise<void> {
   }
 }
 
-async function deploySample(): Promise<void> {
-  const btn = $("btn-sample") as HTMLButtonElement;
+/** Deploy the sample; `btn` is whichever button asked (header or welcome). */
+async function deploySample(btn: HTMLButtonElement): Promise<void> {
+  const label = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Deploying sample…";
   try {
@@ -523,7 +524,7 @@ async function deploySample(): Promise<void> {
     await tick();
   } finally {
     btn.disabled = false;
-    btn.textContent = "Run sample app";
+    btn.textContent = label;
   }
 }
 
@@ -670,16 +671,24 @@ $("btn-preview").addEventListener("click", () => {
 
 // ---------- Easy / Developer mode ----------
 
-function applyMode(): void {
+/** Reflect `mode` in the DOM: body attribute + every toggle's active side
+ * (the header has one toggle, the help page carries its own). */
+function syncModeUi(): void {
   document.body.dataset.mode = mode;
-  for (const btn of document.querySelectorAll<HTMLButtonElement>("#mode-toggle button")) {
+  for (const btn of document.querySelectorAll<HTMLButtonElement>(".mode-toggle button")) {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   }
-  // Re-render cards so their dynamic wording follows the mode immediately.
-  renderApps(lastApps);
 }
 
-for (const btn of document.querySelectorAll<HTMLButtonElement>("#mode-toggle button")) {
+function applyMode(): void {
+  syncModeUi();
+  // Re-render cards so their dynamic wording follows the mode immediately —
+  // but only where cards render; in a panel window renderApps would clobber
+  // the window title.
+  if (winView === null || winView === "app") renderApps(lastApps);
+}
+
+for (const btn of document.querySelectorAll<HTMLButtonElement>(".mode-toggle button")) {
   btn.addEventListener("click", () => {
     mode = btn.dataset.mode === "dev" ? "dev" : "easy";
     localStorage.setItem("kh-mode", mode);
@@ -687,9 +696,19 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#mode-toggle but
   });
 }
 
+// ---------- Help ("How kube-helper works") ----------
+
+const helpDialog = $("help-dialog") as unknown as HTMLDialogElement;
+$("help-close").addEventListener("click", () => helpDialog.close());
+
 // The header "New app" button opens a dedicated window (like every other action).
 $("btn-new").addEventListener("click", () => void window.kh.openWindow("new", ""));
-$("btn-sample").addEventListener("click", () => void deploySample());
+$("btn-sample").addEventListener("click", () => void deploySample($<HTMLButtonElement>("btn-sample")));
+$("btn-help").addEventListener("click", () => void window.kh.openWindow("help", ""));
+// The first-open welcome repeats the header's actions as big, obvious CTAs.
+$("hero-sample").addEventListener("click", () => void deploySample($<HTMLButtonElement>("hero-sample")));
+$("hero-new").addEventListener("click", () => void window.kh.openWindow("new", ""));
+$("hero-help").addEventListener("click", () => void window.kh.openWindow("help", ""));
 $("new-app-cancel").addEventListener("click", () => dialog.close());
 $("new-app-submit").addEventListener("click", () => void submitNewApp());
 $("btn-add-env").addEventListener("click", () => addEnvRow());
@@ -716,6 +735,12 @@ async function initPanel(view: string, appName: string): Promise<void> {
     document.title = `Logs — ${appName}`;
     openLogs(appName);
     closeOnDialogClose(logsDialog);
+    return;
+  }
+  if (view === "help") {
+    document.title = "How kube-helper works";
+    showDialog(helpDialog);
+    closeOnDialogClose(helpDialog);
     return;
   }
 
@@ -746,7 +771,8 @@ async function initPanel(view: string, appName: string): Promise<void> {
 
 // ---------- Boot, routed by window type ----------
 
-document.body.dataset.mode = mode;
+// Every window kind honors the saved mode (the help window has its own toggle).
+syncModeUi();
 
 if (winView === null) {
   // Main overview window.

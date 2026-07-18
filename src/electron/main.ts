@@ -164,6 +164,7 @@ const WINDOW_KINDS: Record<string, { width: number; height: number; solo: boolea
   edit: { width: 640, height: 800, solo: true },
   share: { width: 480, height: 400, solo: true },
   manifest: { width: 700, height: 640, solo: true },
+  help: { width: 780, height: 860, solo: true }, // "How kube-helper works"
 };
 
 /** Live child windows keyed by "view:app" (solo kinds) so reopening focuses. */

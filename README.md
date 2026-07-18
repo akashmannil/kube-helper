@@ -44,6 +44,13 @@ Every app and every action opens in its own resizable OS window: **⧉ Open** gi
 own live window, and **Logs / Edit / Share / Manifest** each detach so you can open several at
 once — e.g. two apps' logs side by side to compare.
 
+The app also explains itself. On first open (before any app exists) the window teaches the
+whole idea in three steps, previews the live card every app becomes, and offers the sample as
+the first click. A header **?** opens *How kube-helper works* in its own window: the reconcile
+loop drawn out, an Easy↔Developer dictionary, what every button does, and a "when something
+misbehaves" list — with its own Easy/Developer switch, so the guide rewrites itself in
+whichever language you're learning.
+
 ```sh
 npm run gui         # develop: opens the desktop window
 npm run dist        # ship:   → release/kube-helper 0.1.0.exe (portable Windows app)
